@@ -11,6 +11,7 @@ A tablet-friendly local web app for a workplace World Cup pot-pick game.
 - Each player can be locked individually once their own four teams are chosen
 - Locked picks cannot be changed unless admin mode is enabled
 - Admin mode can unlock picks and select the winning team for each pot
+- Admin mode can reset all picks for a player
 - Winners are shown per pot based on the saved player picks
 - Leaderboard ranks players by matched pot winners
 - Leaderboard and Pot Results start collapsed and can be expanded

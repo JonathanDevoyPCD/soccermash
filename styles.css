@@ -76,7 +76,7 @@ body {
 }
 
 main {
-  max-width: 1360px;
+  max-width: 80%;
   margin: 0 auto;
   padding: 1rem;
 }

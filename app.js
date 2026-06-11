@@ -232,7 +232,28 @@ function updatePlayerPick(playerId, potId, team) {
   const player = state.players.find((item) => item.id === playerId);
   if (!player || (player.locked && !state.adminMode)) return;
 
-  player.picks[potId] = team;
+  const isCurrentPick = player.picks[potId] === team;
+  if (isCurrentPick && (state.adminMode || !player.locked)) {
+    player.picks[potId] = null;
+  } else {
+    player.picks[potId] = team;
+  }
+
+  saveState();
+  render();
+}
+
+function resetPlayerPicks(playerId) {
+  if (!state.adminMode) return;
+
+  const player = state.players.find((item) => item.id === playerId);
+  if (!player) return;
+
+  const confirmed = confirm(`Clear all picks for ${player.name} and unlock this player?`);
+  if (!confirmed) return;
+
+  player.picks = { 1: null, 2: null, 3: null, 4: null };
+  player.locked = false;
   saveState();
   render();
 }
@@ -314,6 +335,15 @@ function renderPlayers() {
     actions.appendChild(selectBtn);
     actions.appendChild(lockBtn);
 
+    if (state.adminMode) {
+      const resetBtn = document.createElement("button");
+      resetBtn.textContent = "Reset picks";
+      resetBtn.className = "danger-button";
+      resetBtn.disabled = getPickCount(player) === 0 && !player.locked;
+      resetBtn.addEventListener("click", () => resetPlayerPicks(player.id));
+      actions.appendChild(resetBtn);
+    }
+
     card.appendChild(name);
     card.appendChild(status);
     card.appendChild(createPickLines(player));
@@ -342,10 +372,11 @@ function renderPots() {
 
       if (selectedPlayer && selectedPlayer.picks[pot.id] === team) {
         teamBtn.classList.add("selected");
+        teamBtn.title = "Click again to deselect";
       }
 
       if (selectedPlayer && selectedPlayer.locked && state.adminMode) {
-        teamBtn.title = "Admin can change locked picks";
+        teamBtn.title = "Admin can change or deselect locked picks";
       }
 
       teamBtn.addEventListener("click", () => updatePlayerPick(selectedPlayer.id, pot.id, team));
