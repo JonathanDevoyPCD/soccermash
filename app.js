@@ -23,6 +23,10 @@ const pots = [
 
 const adminPassword = "1234";
 const storageKey = "swcPotGameState";
+const supabaseTable = "game_state";
+const supabaseRecordId = "main";
+let supabaseClient = null;
+let cloudSaveTimer = null;
 
 const state = {
   players: [],
@@ -41,6 +45,7 @@ const resultsGrid = document.getElementById("resultsGrid");
 const winnersPanel = document.getElementById("winnersPanel");
 const importPlayersBtn = document.getElementById("importPlayersBtn");
 const addPlayerBtn = document.getElementById("addPlayerBtn");
+const syncStatus = document.getElementById("syncStatus");
 const modal = document.getElementById("modal");
 const modalTitle = document.getElementById("modalTitle");
 const modalInput = document.getElementById("modalInput");
@@ -49,6 +54,7 @@ const modalSaveBtn = document.getElementById("modalSaveBtn");
 
 function saveState() {
   localStorage.setItem(storageKey, JSON.stringify(state));
+  queueCloudSave();
 }
 
 function loadState() {
@@ -60,6 +66,83 @@ function loadState() {
   } catch {
     localStorage.removeItem(storageKey);
   }
+}
+
+function setSyncStatus(text, status = "") {
+  syncStatus.textContent = text;
+  syncStatus.className = `sync-status ${status}`.trim();
+}
+
+function getSyncedState() {
+  return {
+    players: state.players,
+    selectedPlayerId: state.selectedPlayerId,
+    adminMode: false,
+    results: state.results,
+  };
+}
+
+function initSupabase() {
+  const config = window.SUPABASE_CONFIG;
+  if (!config || !config.url || !config.anonKey || !window.supabase) {
+    setSyncStatus("Local only");
+    return false;
+  }
+
+  supabaseClient = window.supabase.createClient(config.url, config.anonKey, {
+    auth: { persistSession: false },
+  });
+  setSyncStatus("Supabase ready", "synced");
+  return true;
+}
+
+async function loadCloudState() {
+  if (!supabaseClient) return false;
+  setSyncStatus("Loading Supabase", "saving");
+
+  const { data, error } = await supabaseClient
+    .from(supabaseTable)
+    .select("state")
+    .eq("id", supabaseRecordId)
+    .maybeSingle();
+
+  if (error) {
+    setSyncStatus("Supabase error", "error");
+    return false;
+  }
+
+  if (!data || !data.state) {
+    setSyncStatus("Supabase ready", "synced");
+    return false;
+  }
+
+  Object.assign(state, data.state, { adminMode: false });
+  localStorage.setItem(storageKey, JSON.stringify(state));
+  render();
+  setSyncStatus("Supabase synced", "synced");
+  return true;
+}
+
+function queueCloudSave() {
+  if (!supabaseClient) return;
+
+  window.clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = window.setTimeout(() => {
+    saveCloudState();
+  }, 350);
+}
+
+async function saveCloudState() {
+  if (!supabaseClient) return;
+  setSyncStatus("Saving", "saving");
+
+  const { error } = await supabaseClient.from(supabaseTable).upsert({
+    id: supabaseRecordId,
+    state: getSyncedState(),
+    updated_at: new Date().toISOString(),
+  });
+
+  setSyncStatus(error ? "Supabase error" : "Supabase synced", error ? "error" : "synced");
 }
 
 function createPlayer(name) {
@@ -478,8 +561,14 @@ window.addEventListener("click", (event) => {
 
 async function init() {
   loadState();
+  initSupabase();
   render();
+  const cloudLoaded = await loadCloudState();
   await loadPlayersFromFileIfEmpty();
+
+  if (!cloudLoaded && supabaseClient && state.players.length > 0) {
+    await saveCloudState();
+  }
 }
 
 init();

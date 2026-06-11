@@ -13,6 +13,7 @@ A tablet-friendly local web app for a workplace World Cup pot-pick game.
 - Admin mode can unlock picks and select the winning team for each pot
 - Winners are shown per pot based on the saved player picks
 - State is saved in the browser with `localStorage`
+- Optional Supabase sync for shared choices across devices
 
 ## Usage
 
@@ -23,9 +24,21 @@ A tablet-friendly local web app for a workplace World Cup pot-pick game.
 5. Click `Admin mode` and enter `1234` to unlock picks or edit results.
 6. In `Pot Results`, select the winning team for each pot as the tournament progresses.
 
+## Supabase Setup
+
+1. In Supabase, open the SQL editor and run `supabase-schema.sql`.
+2. Open `supabase-config.js`.
+3. Set `url` to your Supabase project URL.
+4. Set `anonKey` to your Supabase anon public key.
+5. Commit and push the updated `supabase-config.js`.
+
+The app runs at `https://jonathandevoypcd.github.io/soccermash/` once GitHub Pages is enabled for this repo.
+
 ## Files
 
 - `index.html` - main page
 - `styles.css` - tablet-friendly styling
 - `app.js` - game logic and browser storage
+- `supabase-config.js` - Supabase browser client configuration
+- `supabase-schema.sql` - database table and row-level security policies
 - `README.md` - setup and usage notes

@@ -43,6 +43,38 @@ body {
   letter-spacing: 0;
 }
 
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.sync-status {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.sync-status.synced {
+  border-color: rgba(46, 229, 143, 0.45);
+  color: var(--success);
+}
+
+.sync-status.saving {
+  border-color: rgba(255, 180, 0, 0.45);
+  color: var(--accent);
+}
+
+.sync-status.error {
+  border-color: rgba(227, 74, 91, 0.45);
+  color: #ffd2d7;
+}
+
 main {
   max-width: 1360px;
   margin: 0 auto;
@@ -361,6 +393,11 @@ button:disabled {
   }
 
   .top-nav {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .nav-actions {
     align-items: stretch;
     flex-direction: column;
   }

@@ -9,7 +9,10 @@
 <body>
   <nav class="top-nav">
     <div class="nav-title">2026 Soccer Pot Pick</div>
-    <button id="adminModeBtn">Admin mode</button>
+    <div class="nav-actions">
+      <span id="syncStatus" class="sync-status">Local only</span>
+      <button id="adminModeBtn">Admin mode</button>
+    </div>
   </nav>
 
   <main>
@@ -66,6 +69,8 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
