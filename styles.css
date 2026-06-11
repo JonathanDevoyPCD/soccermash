@@ -1,0 +1,347 @@
+:root {
+  --bg: #071627;
+  --surface: #112d44;
+  --surface-2: #163a53;
+  --line: rgba(255, 255, 255, 0.1);
+  --text: #e7f1ff;
+  --muted: #c8d8ff;
+  --accent: #ffb400;
+  --accent-2: #1f8fcd;
+  --danger: #e34a5b;
+  --success: #2ee58f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: #071627;
+  color: var(--text);
+}
+
+main {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+header {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.1;
+}
+
+h1 {
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+}
+
+p {
+  margin: 0;
+  color: var(--muted);
+}
+
+button {
+  border: 0;
+  border-radius: 8px;
+  padding: 0.72rem 0.9rem;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+button:hover {
+  opacity: 0.94;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.game-area {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.5fr);
+}
+
+.players-panel,
+.pots-panel,
+.selection-panel,
+.results-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.selection-panel,
+.results-panel {
+  margin-top: 1rem;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+#addPlayerBtn,
+#importPlayersBtn,
+#lockPickBtn,
+#adminModeBtn,
+#modalSaveBtn {
+  background: var(--accent);
+  color: #071627;
+}
+
+#adminModeBtn.admin-on,
+.success-button {
+  background: var(--success);
+  color: #062014;
+}
+
+#unlockPickBtn {
+  background: var(--accent-2);
+  color: var(--text);
+}
+
+.danger-button {
+  background: var(--danger);
+  color: #fff;
+}
+
+.players-list,
+.pots-grid,
+.results-grid,
+.winners-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.players-list,
+.winners-panel {
+  margin-top: 1rem;
+}
+
+.pots-grid,
+.results-grid {
+  margin-top: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.player-card,
+.pot-card,
+.result-card,
+.winner-card,
+.empty-state,
+.alert {
+  border-radius: 8px;
+}
+
+.player-card {
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.player-card.selected {
+  border-color: var(--accent);
+}
+
+.player-card.empty,
+.empty-state {
+  min-height: 130px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: #a9bcd8;
+}
+
+.player-card.empty {
+  background: var(--surface-2);
+}
+
+.empty-state {
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+.status-locked {
+  color: var(--accent);
+}
+
+.status-open {
+  color: #aad4ff;
+}
+
+.pick-lines {
+  display: grid;
+  gap: 0.32rem;
+  color: #d6e6ff;
+  font-size: 0.95rem;
+}
+
+.card-actions,
+.selection-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.card-actions button {
+  flex: 1 1 92px;
+}
+
+.selection-actions {
+  margin-top: 1rem;
+}
+
+.pot-card,
+.result-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  padding: 0.75rem;
+}
+
+.pot-card h3,
+.result-card h3 {
+  margin-bottom: 0.65rem;
+}
+
+.team-button,
+.result-team-button {
+  width: 100%;
+  display: block;
+  min-height: 42px;
+  margin-bottom: 0.45rem;
+  padding: 0.62rem 0.68rem;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+  text-align: left;
+  white-space: normal;
+}
+
+.team-button.selected,
+.result-team-button.selected {
+  background: rgba(255, 180, 0, 0.2);
+  box-shadow: inset 0 0 0 2px rgba(255, 180, 0, 0.7);
+}
+
+.selected-winner {
+  margin-top: 0.75rem;
+  color: var(--muted);
+}
+
+.winner-card {
+  background: rgba(46, 229, 143, 0.1);
+  border: 1px solid rgba(46, 229, 143, 0.28);
+  padding: 0.9rem;
+}
+
+.winner-card strong {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.hint {
+  margin-top: 0.45rem;
+  color: #aad4ff;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-content {
+  width: min(420px, 100%);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 1.2rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.modal-content textarea {
+  width: 100%;
+  min-height: 160px;
+  resize: vertical;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 0.9rem 1rem;
+  margin-top: 1rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font: inherit;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.modal-actions button {
+  min-width: 90px;
+}
+
+.alert {
+  background: rgba(227, 74, 91, 0.12);
+  border: 1px solid rgba(227, 74, 91, 0.2);
+  color: #ffd2d7;
+  padding: 0.9rem 1rem;
+}
+
+@media (max-width: 1100px) {
+  .game-area {
+    grid-template-columns: 1fr;
+  }
+
+  .pots-grid,
+  .results-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  main {
+    padding: 0.75rem;
+  }
+
+  .panel-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pots-grid,
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+}

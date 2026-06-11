@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2026 Soccer World Cup Pot Pick Game</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <h1>2026 Soccer World Cup: Pot Pick Game</h1>
+      <p>Each co-worker chooses one team from each pot. Lock the four picks, then track the pot winners as results come in.</p>
+    </header>
+
+    <section class="game-area">
+      <section class="players-panel">
+        <div class="panel-header">
+          <h2>Players</h2>
+          <div class="header-actions">
+            <button id="importPlayersBtn">Import players.txt</button>
+            <button id="addPlayerBtn">Add players</button>
+          </div>
+        </div>
+        <div id="playersList" class="players-list"></div>
+      </section>
+
+      <section class="pots-panel">
+        <h2>Pot Teams</h2>
+        <div class="pots-grid" id="potsGrid"></div>
+      </section>
+    </section>
+
+    <section class="selection-panel">
+      <h2>Selected Pick</h2>
+      <div id="selectedPlayerCard" class="player-card empty">Choose a player to assign teams</div>
+      <div class="selection-actions">
+        <button id="lockPickBtn" disabled>Lock picks</button>
+        <button id="unlockPickBtn" disabled>Admin unlock picks</button>
+      </div>
+    </section>
+
+    <section class="results-panel">
+      <div class="panel-header">
+        <h2>Pot Results</h2>
+        <button id="adminModeBtn">Admin mode</button>
+      </div>
+      <p class="hint">Use admin mode to unlock locked picks or edit results.</p>
+      <div id="resultsGrid" class="results-grid"></div>
+      <div id="winnersPanel" class="winners-panel"></div>
+    </section>
+  </main>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <h3 id="modalTitle">Add Players</h3>
+      <textarea id="modalInput" rows="7" placeholder="Enter one co-worker name per line"></textarea>
+      <div class="modal-actions">
+        <button id="modalCancelBtn">Cancel</button>
+        <button id="modalSaveBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
