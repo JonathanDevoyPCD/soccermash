@@ -21,7 +21,7 @@ const pots = [
   },
 ];
 
-const adminPassword = "2026soccer";
+const adminPassword = "1234";
 const storageKey = "swcPotGameState";
 
 const state = {
@@ -135,6 +135,16 @@ function getPickCount(player) {
   return pots.filter((pot) => Boolean(player.picks[pot.id])).length;
 }
 
+function getMissingPickCount(player) {
+  return pots.length - getPickCount(player);
+}
+
+function getLockButtonText(player) {
+  if (player.locked) return state.adminMode ? "Unlock this player" : "Locked";
+  if (hasCompletePicks(player)) return "Lock this player";
+  return `${getMissingPickCount(player)} pick${getMissingPickCount(player) === 1 ? "" : "s"} left`;
+}
+
 function updatePlayerPick(playerId, potId, team) {
   const player = state.players.find((item) => item.id === playerId);
   if (!player || (player.locked && !state.adminMode)) return;
@@ -149,7 +159,7 @@ function toggleLock(playerId) {
   if (!player || (!state.adminMode && player.locked)) return;
 
   if (!player.locked && !hasCompletePicks(player)) {
-    alert("Choose one team from every pot before locking picks.");
+    alert(`${player.name} needs one team from every pot before their picks can be locked.`);
     return;
   }
 
@@ -208,9 +218,12 @@ function renderPlayers() {
     selectBtn.addEventListener("click", () => selectPlayer(player.id));
 
     const lockBtn = document.createElement("button");
-    lockBtn.textContent = player.locked ? "Unlock" : "Lock";
+    lockBtn.textContent = getLockButtonText(player);
     lockBtn.className = player.locked ? "danger-button" : "success-button";
-    lockBtn.disabled = !state.adminMode && player.locked;
+    lockBtn.disabled = (!state.adminMode && player.locked) || (!player.locked && !hasCompletePicks(player));
+    lockBtn.title = hasCompletePicks(player)
+      ? `Only locks picks for ${player.name}`
+      : `${player.name} still needs ${getMissingPickCount(player)} pick(s)`;
     lockBtn.addEventListener("click", () => toggleLock(player.id));
 
     actions.appendChild(selectBtn);
@@ -265,6 +278,8 @@ function renderSelectedPlayerCard() {
   if (!player) {
     selectedPlayerCard.className = "player-card empty";
     selectedPlayerCard.textContent = "Choose a player to assign teams";
+    lockPickBtn.textContent = "Lock selected player";
+    unlockPickBtn.textContent = "Admin unlock selected player";
     lockPickBtn.disabled = true;
     unlockPickBtn.disabled = true;
     return;
@@ -283,7 +298,13 @@ function renderSelectedPlayerCard() {
   selectedPlayerCard.appendChild(status);
   selectedPlayerCard.appendChild(createPickLines(player, "Not chosen"));
 
+  lockPickBtn.textContent = player.locked ? "Locked" : `Lock ${player.name}`;
   lockPickBtn.disabled = player.locked || !hasCompletePicks(player);
+  lockPickBtn.title = hasCompletePicks(player)
+    ? `Only locks picks for ${player.name}`
+    : `${player.name} still needs ${getMissingPickCount(player)} pick(s)`;
+
+  unlockPickBtn.textContent = `Admin unlock ${player.name}`;
   unlockPickBtn.disabled = !player.locked || !state.adminMode;
 }
 
@@ -429,7 +450,7 @@ lockPickBtn.addEventListener("click", () => {
   if (!player) return;
 
   if (!hasCompletePicks(player)) {
-    alert("Choose one team from every pot before locking picks.");
+    alert(`${player.name} needs one team from every pot before their picks can be locked.`);
     return;
   }
 

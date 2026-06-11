@@ -7,10 +7,15 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <nav class="top-nav">
+    <div class="nav-title">2026 Soccer Pot Pick</div>
+    <button id="adminModeBtn">Admin mode</button>
+  </nav>
+
   <main>
     <header>
       <h1>2026 Soccer World Cup: Pot Pick Game</h1>
-      <p>Each co-worker chooses one team from each pot. Lock the four picks, then track the pot winners as results come in.</p>
+      <p>Each co-worker chooses one team from each pot. Lock each player as soon as their four picks are done, then track pot winners as results come in.</p>
     </header>
 
     <section class="game-area">
@@ -35,15 +40,14 @@
       <h2>Selected Pick</h2>
       <div id="selectedPlayerCard" class="player-card empty">Choose a player to assign teams</div>
       <div class="selection-actions">
-        <button id="lockPickBtn" disabled>Lock picks</button>
-        <button id="unlockPickBtn" disabled>Admin unlock picks</button>
+        <button id="lockPickBtn" disabled>Lock selected player</button>
+        <button id="unlockPickBtn" disabled>Admin unlock selected player</button>
       </div>
     </section>
 
     <section class="results-panel">
       <div class="panel-header">
         <h2>Pot Results</h2>
-        <button id="adminModeBtn">Admin mode</button>
       </div>
       <p class="hint">Use admin mode to unlock locked picks or edit results.</p>
       <div id="resultsGrid" class="results-grid"></div>

@@ -23,6 +23,26 @@ body {
   color: var(--text);
 }
 
+.top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 64px;
+  padding: 0.75rem 1rem;
+  background: rgba(7, 22, 39, 0.96);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+}
+
+.nav-title {
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
 main {
   max-width: 1360px;
   margin: 0 auto;
@@ -336,6 +356,11 @@ button:disabled {
   }
 
   .panel-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .top-nav {
     align-items: stretch;
     flex-direction: column;
   }
