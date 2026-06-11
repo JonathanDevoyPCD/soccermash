@@ -39,6 +39,25 @@ const matchApiSources = [
   "https://raw.githubusercontent.com/rezarahiminia/worldcup2026/main/football.matches.json",
 ];
 const teamApiSource = "https://raw.githubusercontent.com/rezarahiminia/worldcup2026/main/football.teams.json";
+const southAfricaTimeZone = "Africa/Johannesburg";
+const stadiumTimeZones = {
+  1: "America/Mexico_City",
+  2: "America/Mexico_City",
+  3: "America/Mexico_City",
+  4: "America/Chicago",
+  5: "America/New_York",
+  6: "America/Los_Angeles",
+  7: "America/New_York",
+  8: "America/New_York",
+  9: "America/Chicago",
+  10: "America/Chicago",
+  11: "America/Los_Angeles",
+  12: "America/New_York",
+  13: "America/Los_Angeles",
+  14: "America/New_York",
+  15: "America/Toronto",
+  16: "America/Vancouver",
+};
 let supabaseClient = null;
 let cloudSaveTimer = null;
 
@@ -270,15 +289,46 @@ function normalizeBoolean(value) {
   return String(value).toLowerCase() === "true" || value === true;
 }
 
-function parseFixtureDate(value) {
+function getTimeZoneOffset(date, timeZone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const zonedTime = Date.UTC(values.year, Number(values.month) - 1, values.day, values.hour, values.minute, values.second);
+  return zonedTime - date.getTime();
+}
+
+function createDateFromTimeZone(year, month, day, hours, minutes, timeZone) {
+  const utcTime = Date.UTC(year, month - 1, day, hours || 0, minutes || 0);
+  const firstOffset = getTimeZoneOffset(new Date(utcTime), timeZone);
+  const firstDate = new Date(utcTime - firstOffset);
+  const secondOffset = getTimeZoneOffset(firstDate, timeZone);
+  return new Date(utcTime - secondOffset);
+}
+
+function parseFixtureDate(match) {
+  const value = match.local_date || match.date;
   if (!value) return null;
+
+  if (String(value).includes("T")) {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
 
   const [datePart, timePart = "00:00"] = String(value).split(" ");
   const [month, day, year] = datePart.split("/").map(Number);
   const [hours, minutes] = timePart.split(":").map(Number);
 
   if (!year || !month || !day) return null;
-  return new Date(year, month - 1, day, hours || 0, minutes || 0);
+  const stadiumTimeZone = stadiumTimeZones[match.stadium_id] || southAfricaTimeZone;
+  return createDateFromTimeZone(year, month, day, hours, minutes, stadiumTimeZone);
 }
 
 function getFixtureStatus(match) {
@@ -303,19 +353,20 @@ function createTeamNameMap(teams) {
 
 function formatMatchDate(date) {
   if (!date) return "date TBC";
-  return date.toLocaleString(undefined, {
+  return `${date.toLocaleString("en-ZA", {
+    timeZone: southAfricaTimeZone,
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  });
+  })} SAST`;
 }
 
 function updateMatchProgress(matches, teams, source) {
   const safeMatches = Array.isArray(matches) ? matches : [];
   const teamNames = createTeamNameMap(teams);
   const total = safeMatches.length || 104;
-  const statuses = safeMatches.map((match) => ({ match, status: getFixtureStatus(match), date: parseFixtureDate(match.local_date || match.date) }));
+  const statuses = safeMatches.map((match) => ({ match, status: getFixtureStatus(match), date: parseFixtureDate(match) }));
   const played = statuses.filter((item) => item.status === "played").length;
   const live = statuses.filter((item) => item.status === "live").length;
   const upcoming = Math.max(total - played - live, 0);
