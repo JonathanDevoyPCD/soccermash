@@ -50,6 +50,7 @@ const modalTitle = document.getElementById("modalTitle");
 const modalInput = document.getElementById("modalInput");
 const modalCancelBtn = document.getElementById("modalCancelBtn");
 const modalSaveBtn = document.getElementById("modalSaveBtn");
+const togglePanelBtns = document.querySelectorAll(".toggle-panel-btn");
 
 function saveState() {
   localStorage.setItem(storageKey, JSON.stringify(state));
@@ -554,6 +555,17 @@ importPlayersBtn.addEventListener("click", () => {
 });
 
 adminModeBtn.addEventListener("click", promptAdmin);
+
+togglePanelBtns.forEach((button) => {
+  button.addEventListener("click", () => {
+    const target = document.getElementById(button.dataset.target);
+    if (!target) return;
+
+    const isCollapsed = target.classList.toggle("collapsed");
+    button.textContent = isCollapsed ? "Expand" : "Collapse";
+    button.setAttribute("aria-expanded", String(!isCollapsed));
+  });
+});
 
 window.addEventListener("click", (event) => {
   if (event.target === modal) {

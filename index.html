@@ -8,7 +8,7 @@
 </head>
 <body>
   <nav class="top-nav">
-    <div class="nav-title">2026 Soccer Pot Pick</div>
+    <div class="nav-title">SOCCERMASH 2026 - FIFA World Cup 2026</div>
     <div class="nav-actions">
       <span id="syncStatus" class="sync-status">Local only</span>
       <button id="adminModeBtn">Admin mode</button>
@@ -17,7 +17,7 @@
 
   <main>
     <header>
-      <h1>2026 Soccer World Cup: Pot Pick Game</h1>
+      <h1>SOCCERMASH 2026</h1>
       <p>Each co-worker chooses one team from each pot. Lock each player as soon as their four picks are done, then track pot winners as results come in.</p>
     </header>
 
@@ -42,18 +42,26 @@
     <section class="leaderboard-panel">
       <div class="panel-header">
         <h2>Leaderboard</h2>
-        <span id="leaderboardSummary" class="panel-pill">0 pots decided</span>
+        <div class="panel-header-actions">
+          <span id="leaderboardSummary" class="panel-pill">0 pots decided</span>
+          <button class="toggle-panel-btn" data-target="leaderboardContent" aria-expanded="false">Expand</button>
+        </div>
       </div>
-      <div id="leaderboardList" class="leaderboard-list"></div>
+      <div id="leaderboardContent" class="collapsible-content collapsed">
+        <div id="leaderboardList" class="leaderboard-list"></div>
+      </div>
     </section>
 
     <section class="results-panel">
       <div class="panel-header">
         <h2>Pot Results</h2>
+        <button class="toggle-panel-btn" data-target="resultsContent" aria-expanded="false">Expand</button>
       </div>
-      <p class="hint">Use admin mode to unlock locked picks or edit results.</p>
-      <div id="resultsGrid" class="results-grid"></div>
-      <div id="winnersPanel" class="winners-panel"></div>
+      <div id="resultsContent" class="collapsible-content collapsed">
+        <p class="hint">Use admin mode to unlock locked picks or edit results.</p>
+        <div id="resultsGrid" class="results-grid"></div>
+        <div id="winnersPanel" class="winners-panel"></div>
+      </div>
     </section>
   </main>
 

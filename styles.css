@@ -161,10 +161,19 @@ button:disabled {
   justify-content: flex-end;
 }
 
+.panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 #addPlayerBtn,
 #importPlayersBtn,
 #adminModeBtn,
-#modalSaveBtn {
+#modalSaveBtn,
+.toggle-panel-btn {
   background: var(--accent);
   color: #071627;
 }
@@ -349,6 +358,10 @@ button:disabled {
   font-weight: 800;
 }
 
+.collapsible-content.collapsed {
+  display: none;
+}
+
 .winner-card {
   background: rgba(46, 229, 143, 0.1);
   border: 1px solid rgba(46, 229, 143, 0.28);
@@ -434,6 +447,11 @@ button:disabled {
   }
 
   .panel-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .panel-header-actions {
     align-items: stretch;
     flex-direction: column;
   }
