@@ -27,10 +27,8 @@ A tablet-friendly local web app for a workplace World Cup pot-pick game.
 ## Supabase Setup
 
 1. In Supabase, open the SQL editor and run `supabase-schema.sql`.
-2. Open `supabase-config.js`.
-3. Set `url` to your Supabase project URL.
-4. Set `anonKey` to your Supabase anon public key.
-5. Commit and push the updated `supabase-config.js`.
+2. Confirm `supabase-config.js` contains the project URL and publishable key.
+3. Commit and push any config changes.
 
 The app runs at `https://jonathandevoypcd.github.io/soccermash/` once GitHub Pages is enabled for this repo.
 
