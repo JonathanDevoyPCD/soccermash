@@ -136,6 +136,12 @@ button:disabled {
   padding: 1rem;
 }
 
+.players-panel,
+.pots-panel {
+  height: 800px;
+  overflow-y: auto;
+}
+
 .selection-panel,
 .results-panel {
   margin-top: 1rem;
