@@ -15,6 +15,7 @@ A tablet-friendly local web app for a workplace World Cup pot-pick game.
 - Winners are shown per pot based on the saved player picks
 - Leaderboard ranks players by matched pot winners
 - Leaderboard and Pot Results start collapsed and can be expanded
+- World Cup progress bar loads fixture status from a public fixtures API with static JSON fallback
 - State is saved in the browser with `localStorage`
 - Optional Supabase sync for shared choices across devices
 

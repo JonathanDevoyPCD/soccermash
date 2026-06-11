@@ -34,6 +34,11 @@ const adminPassword = "1234";
 const storageKey = "swcPotGameState";
 const supabaseTable = "game_state";
 const supabaseRecordId = "main";
+const matchApiSources = [
+  "https://worldcup26.ir/get/games",
+  "https://raw.githubusercontent.com/rezarahiminia/worldcup2026/main/football.matches.json",
+];
+const teamApiSource = "https://raw.githubusercontent.com/rezarahiminia/worldcup2026/main/football.teams.json";
 let supabaseClient = null;
 let cloudSaveTimer = null;
 
@@ -46,6 +51,12 @@ const state = {
 
 const playersList = document.getElementById("playersList");
 const potsGrid = document.getElementById("potsGrid");
+const matchApiStatus = document.getElementById("matchApiStatus");
+const matchesPlayedText = document.getElementById("matchesPlayedText");
+const nextMatchText = document.getElementById("nextMatchText");
+const liveMatchesText = document.getElementById("liveMatchesText");
+const upcomingMatchesText = document.getElementById("upcomingMatchesText");
+const matchProgressFill = document.getElementById("matchProgressFill");
 const leaderboardSummary = document.getElementById("leaderboardSummary");
 const leaderboardList = document.getElementById("leaderboardList");
 const adminModeBtn = document.getElementById("adminModeBtn");
@@ -107,6 +118,11 @@ function setSyncStatus(text, status = "") {
   syncStatus.className = `sync-status ${status}`.trim();
 }
 
+function setMatchApiStatus(text, status = "") {
+  matchApiStatus.textContent = text;
+  matchApiStatus.className = `panel-pill ${status}`.trim();
+}
+
 function getSyncedState() {
   return {
     players: state.players,
@@ -154,7 +170,7 @@ async function loadCloudState() {
   migrateTeamNames();
   localStorage.setItem(storageKey, JSON.stringify(state));
   render();
-  setSyncStatus("Supabase synced", "synced");
+  setSyncStatus("Synced", "synced");
   return true;
 }
 
@@ -177,7 +193,7 @@ async function saveCloudState() {
     updated_at: new Date().toISOString(),
   });
 
-  setSyncStatus(error ? "Supabase error" : "Supabase synced", error ? "error" : "synced");
+  setSyncStatus(error ? "Supabase error" : "Synced", error ? "error" : "synced");
 }
 
 function createPlayer(name) {
@@ -234,6 +250,113 @@ async function importPlayersFromFile(showMessage = false) {
 async function loadPlayersFromFileIfEmpty() {
   if (state.players.length > 0) return;
   await importPlayersFromFile(false);
+}
+
+async function fetchJsonFromSources(sources) {
+  for (const source of sources) {
+    try {
+      const response = await fetch(source, { cache: "no-store" });
+      if (!response.ok) continue;
+      return { data: await response.json(), source };
+    } catch {
+      // Try the next source.
+    }
+  }
+
+  return { data: null, source: null };
+}
+
+function normalizeBoolean(value) {
+  return String(value).toLowerCase() === "true" || value === true;
+}
+
+function parseFixtureDate(value) {
+  if (!value) return null;
+
+  const [datePart, timePart = "00:00"] = String(value).split(" ");
+  const [month, day, year] = datePart.split("/").map(Number);
+  const [hours, minutes] = timePart.split(":").map(Number);
+
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day, hours || 0, minutes || 0);
+}
+
+function getFixtureStatus(match) {
+  const elapsed = String(match.time_elapsed || match.status || "").toLowerCase();
+  if (normalizeBoolean(match.finished) || ["finished", "ft", "aet", "pen"].includes(elapsed)) return "played";
+  if (["live", "inplay", "playing", "halftime", "ht"].includes(elapsed) || Number(elapsed) > 0) return "live";
+  return "upcoming";
+}
+
+function createTeamNameMap(teams) {
+  const map = new Map();
+  if (!Array.isArray(teams)) return map;
+
+  teams.forEach((team) => {
+    const id = String(team.id || team.team_id || "");
+    const name = team.name_en || team.name || team.country || id;
+    if (id && name) map.set(id, name);
+  });
+
+  return map;
+}
+
+function formatMatchDate(date) {
+  if (!date) return "date TBC";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function updateMatchProgress(matches, teams, source) {
+  const safeMatches = Array.isArray(matches) ? matches : [];
+  const teamNames = createTeamNameMap(teams);
+  const total = safeMatches.length || 104;
+  const statuses = safeMatches.map((match) => ({ match, status: getFixtureStatus(match), date: parseFixtureDate(match.local_date || match.date) }));
+  const played = statuses.filter((item) => item.status === "played").length;
+  const live = statuses.filter((item) => item.status === "live").length;
+  const upcoming = Math.max(total - played - live, 0);
+  const percent = total ? Math.round((played / total) * 100) : 0;
+  const next = statuses
+    .filter((item) => item.status === "upcoming")
+    .sort((a, b) => (a.date || new Date(8640000000000000)) - (b.date || new Date(8640000000000000)))[0];
+
+  matchesPlayedText.textContent = `${played} / ${total} matches played`;
+  liveMatchesText.textContent = `${live} live`;
+  upcomingMatchesText.textContent = `${upcoming} upcoming`;
+  matchProgressFill.style.width = `${percent}%`;
+  matchProgressFill.textContent = percent > 8 ? `${percent}%` : "";
+
+  if (next) {
+    const home = teamNames.get(String(next.match.home_team_id)) || `Team ${next.match.home_team_id}`;
+    const away = teamNames.get(String(next.match.away_team_id)) || `Team ${next.match.away_team_id}`;
+    nextMatchText.textContent = `Next: ${home} vs ${away} - ${formatMatchDate(next.date)}`;
+  } else {
+    nextMatchText.textContent = played === total ? "Tournament complete." : "No upcoming fixture found.";
+  }
+
+  setMatchApiStatus(source && source.includes("raw.githubusercontent.com") ? "Static fixtures" : "Live API connected", "synced");
+}
+
+async function loadMatchProgress() {
+  setMatchApiStatus("Loading fixtures", "saving");
+
+  const [{ data: matches, source }, { data: teams }] = await Promise.all([
+    fetchJsonFromSources(matchApiSources),
+    fetchJsonFromSources([teamApiSource]),
+  ]);
+
+  if (!matches) {
+    setMatchApiStatus("Fixture API unavailable", "error");
+    matchesPlayedText.textContent = "0 / 104 matches played";
+    nextMatchText.textContent = "Could not load fixtures. Try refreshing later.";
+    return;
+  }
+
+  updateMatchProgress(matches, teams, source);
 }
 
 function selectPlayer(playerId) {
@@ -679,6 +802,7 @@ async function init() {
   loadState();
   initSupabase();
   render();
+  loadMatchProgress();
   const cloudLoaded = await loadCloudState();
   await loadPlayersFromFileIfEmpty();
 

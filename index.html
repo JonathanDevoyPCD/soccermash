@@ -8,7 +8,7 @@
 </head>
 <body>
   <nav class="top-nav">
-    <div class="nav-title">SOCCERMASH 2026 - FIFA World Cup 2026</div>
+    <div class="nav-title">SOCCERSMASH 2026 - FIFA World Cup 2026</div>
     <div class="nav-actions">
       <span id="syncStatus" class="sync-status">Local only</span>
       <button id="adminModeBtn">Admin mode</button>
@@ -17,18 +17,34 @@
 
   <main>
     <header>
-      <h1>SOCCERMASH 2026</h1>
+      <h1>SOCCERSMASH 2026</h1>
       <p>Each co-worker chooses one team from each pot. Lock each player as soon as their four picks are done, then track pot winners as results come in.</p>
     </header>
+
+    <section class="progress-panel">
+      <div class="panel-header">
+        <h2>World Cup Progress</h2>
+        <span id="matchApiStatus" class="panel-pill">Loading fixtures</span>
+      </div>
+      <div class="progress-summary">
+        <div>
+          <strong id="matchesPlayedText">0 / 104 matches played</strong>
+          <p id="nextMatchText">Checking the next fixture...</p>
+        </div>
+        <div class="progress-stats">
+          <span id="liveMatchesText">0 live</span>
+          <span id="upcomingMatchesText">104 upcoming</span>
+        </div>
+      </div>
+      <div class="match-progress-bar" aria-label="World Cup match progress">
+        <div id="matchProgressFill" class="match-progress-fill"></div>
+      </div>
+    </section>
 
     <section class="game-area">
       <section class="players-panel">
         <div class="panel-header">
           <h2>Players</h2>
-          <!-- <div class="header-actions">
-            <button id="importPlayersBtn">Import players.txt</button>
-            <button id="addPlayerBtn">Add players</button>
-          </div> -->
         </div>
         <div id="playersList" class="players-list"></div>
       </section>
