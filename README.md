@@ -12,6 +12,7 @@ A tablet-friendly local web app for a workplace World Cup pot-pick game.
 - Locked picks cannot be changed unless admin mode is enabled
 - Admin mode can unlock picks and select the winning team for each pot
 - Winners are shown per pot based on the saved player picks
+- Leaderboard ranks players by matched pot winners
 - State is saved in the browser with `localStorage`
 - Optional Supabase sync for shared choices across devices
 

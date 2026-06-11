@@ -37,9 +37,8 @@ const state = {
 
 const playersList = document.getElementById("playersList");
 const potsGrid = document.getElementById("potsGrid");
-const selectedPlayerCard = document.getElementById("selectedPlayerCard");
-const lockPickBtn = document.getElementById("lockPickBtn");
-const unlockPickBtn = document.getElementById("unlockPickBtn");
+const leaderboardSummary = document.getElementById("leaderboardSummary");
+const leaderboardList = document.getElementById("leaderboardList");
 const adminModeBtn = document.getElementById("adminModeBtn");
 const resultsGrid = document.getElementById("resultsGrid");
 const winnersPanel = document.getElementById("winnersPanel");
@@ -282,7 +281,9 @@ function renderPlayers() {
     return;
   }
 
-  state.players.forEach((player) => {
+  const sortedPlayers = [...state.players].sort((a, b) => a.name.localeCompare(b.name));
+
+  sortedPlayers.forEach((player) => {
     const card = document.createElement("div");
     card.className = `player-card ${player.id === state.selectedPlayerId ? "selected" : ""}`;
 
@@ -354,41 +355,65 @@ function renderPots() {
   });
 }
 
-function renderSelectedPlayerCard() {
-  const player = getSelectedPlayer();
-  selectedPlayerCard.innerHTML = "";
+function getPlayerScore(player) {
+  const winningPots = pots.filter((pot) => state.results[pot.id]);
+  const winningTeams = winningPots.filter((pot) => player.picks[pot.id] === state.results[pot.id]);
 
-  if (!player) {
-    selectedPlayerCard.className = "player-card empty";
-    selectedPlayerCard.textContent = "Choose a player to assign teams";
-    lockPickBtn.textContent = "Lock selected player";
-    unlockPickBtn.textContent = "Admin unlock selected player";
-    lockPickBtn.disabled = true;
-    unlockPickBtn.disabled = true;
+  return {
+    player,
+    score: winningTeams.length,
+    decided: winningPots.length,
+    winningTeams,
+  };
+}
+
+function renderLeaderboard() {
+  leaderboardList.innerHTML = "";
+
+  const decidedCount = pots.filter((pot) => state.results[pot.id]).length;
+  leaderboardSummary.textContent = `${decidedCount} pot${decidedCount === 1 ? "" : "s"} decided`;
+
+  if (state.players.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = "Add players to see the leaderboard.";
+    leaderboardList.appendChild(empty);
     return;
   }
 
-  selectedPlayerCard.className = "player-card";
+  const rows = state.players
+    .map(getPlayerScore)
+    .sort((a, b) => b.score - a.score || a.player.name.localeCompare(b.player.name));
 
-  const name = document.createElement("h3");
-  name.textContent = player.name;
+  rows.forEach((row, index) => {
+    const item = document.createElement("div");
+    item.className = "leaderboard-item";
 
-  const status = document.createElement("p");
-  status.textContent = `Status: ${player.locked ? "Locked" : "Open"} - ${getPickCount(player)}/4 picked`;
-  status.className = player.locked ? "status-locked" : "status-open";
+    const rank = document.createElement("div");
+    rank.className = "leaderboard-rank";
+    rank.textContent = index + 1;
 
-  selectedPlayerCard.appendChild(name);
-  selectedPlayerCard.appendChild(status);
-  selectedPlayerCard.appendChild(createPickLines(player, "Not chosen"));
+    const details = document.createElement("div");
+    details.className = "leaderboard-details";
 
-  lockPickBtn.textContent = player.locked ? "Locked" : `Lock ${player.name}`;
-  lockPickBtn.disabled = player.locked || !hasCompletePicks(player);
-  lockPickBtn.title = hasCompletePicks(player)
-    ? `Only locks picks for ${player.name}`
-    : `${player.name} still needs ${getMissingPickCount(player)} pick(s)`;
+    const name = document.createElement("strong");
+    name.textContent = row.player.name;
 
-  unlockPickBtn.textContent = `Admin unlock ${player.name}`;
-  unlockPickBtn.disabled = !player.locked || !state.adminMode;
+    const subtext = document.createElement("span");
+    const winningLabels = row.winningTeams.map((pot) => `${pot.label}: ${state.results[pot.id]}`).join(", ");
+    subtext.textContent = winningLabels || `${getPickCount(row.player)}/4 picked - ${row.player.locked ? "locked" : "open"}`;
+
+    const score = document.createElement("div");
+    score.className = "leaderboard-score";
+    score.textContent = `${row.score}/${row.decided}`;
+
+    details.appendChild(name);
+    details.appendChild(subtext);
+    item.appendChild(rank);
+    item.appendChild(details);
+    item.appendChild(score);
+    leaderboardList.appendChild(item);
+  });
 }
 
 function renderResults() {
@@ -461,7 +486,7 @@ function renderWinnerCards() {
 function render() {
   renderPlayers();
   renderPots();
-  renderSelectedPlayerCard();
+  renderLeaderboard();
   renderResults();
 
   adminModeBtn.textContent = state.adminMode ? "Admin mode: ON" : "Admin mode";
@@ -526,29 +551,6 @@ addPlayerBtn.addEventListener("click", () => {
 
 importPlayersBtn.addEventListener("click", () => {
   importPlayersFromFile(true);
-});
-
-lockPickBtn.addEventListener("click", () => {
-  const player = getSelectedPlayer();
-  if (!player) return;
-
-  if (!hasCompletePicks(player)) {
-    alert(`${player.name} needs one team from every pot before their picks can be locked.`);
-    return;
-  }
-
-  player.locked = true;
-  saveState();
-  render();
-});
-
-unlockPickBtn.addEventListener("click", () => {
-  const player = getSelectedPlayer();
-  if (player && state.adminMode) {
-    player.locked = false;
-    saveState();
-    render();
-  }
 });
 
 adminModeBtn.addEventListener("click", promptAdmin);
