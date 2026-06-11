@@ -154,13 +154,6 @@ button:disabled {
   gap: 0.75rem;
 }
 
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
 .panel-header-actions {
   display: flex;
   align-items: center;
@@ -169,8 +162,6 @@ button:disabled {
   justify-content: flex-end;
 }
 
-#addPlayerBtn,
-#importPlayersBtn,
 #adminModeBtn,
 #modalSaveBtn,
 .toggle-panel-btn {
@@ -226,6 +217,65 @@ button:disabled {
   padding: 0.9rem;
   display: grid;
   gap: 0.55rem;
+}
+
+.player-card-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.player-card-header:hover {
+  opacity: 1;
+}
+
+.player-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.player-tag,
+.player-toggle-label {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.24rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.player-tag.complete,
+.player-tag.locked {
+  border-color: rgba(46, 229, 143, 0.45);
+  color: var(--success);
+}
+
+.player-tag.incomplete {
+  border-color: rgba(255, 180, 0, 0.45);
+  color: var(--accent);
+}
+
+.player-tag.open,
+.player-toggle-label {
+  color: var(--muted);
+}
+
+.player-card-body {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.player-card.collapsed .player-card-body {
+  display: none;
 }
 
 .player-card.selected {
@@ -454,6 +504,15 @@ button:disabled {
   .panel-header-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .player-card-header {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .player-tags {
+    justify-content: flex-start;
   }
 
   .top-nav {

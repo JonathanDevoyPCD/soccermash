@@ -4,7 +4,7 @@ A tablet-friendly local web app for a workplace World Cup pot-pick game.
 
 ## Features
 
-- Four 2026 World Cup pots with the supplied teams
+- Four 2026 World Cup pots with the qualified teams
 - Add co-workers as players, including pasting multiple names at once
 - Import names from `players.txt`
 - Each player chooses one team from Pot 1, Pot 2, Pot 3, and Pot 4

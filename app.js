@@ -17,9 +17,18 @@ const pots = [
   {
     id: 4,
     label: "Pot 4",
-    teams: ["Jordan", "Cabo Verde", "Ghana", "Cura\u00e7ao", "Haiti", "New Zealand", "European Play-Off A winner", "European Play-Off B winner", "European Play-Off C winner", "European Play-Off D winner", "FIFA Play-Off Tournament winner 1", "FIFA Play-Off Tournament winner 2"],
+    teams: ["Jordan", "Cabo Verde", "Ghana", "Cura\u00e7ao", "Haiti", "New Zealand", "Bosnia and Herzegovina", "Sweden", "T\u00fcrkiye", "Czechia", "Congo DR", "Iraq"],
   },
 ];
+
+const teamNameReplacements = {
+  "European Play-Off A winner": "Bosnia and Herzegovina",
+  "European Play-Off B winner": "Sweden",
+  "European Play-Off C winner": "T\u00fcrkiye",
+  "European Play-Off D winner": "Czechia",
+  "FIFA Play-Off Tournament winner 1": "Congo DR",
+  "FIFA Play-Off Tournament winner 2": "Iraq",
+};
 
 const adminPassword = "1234";
 const storageKey = "swcPotGameState";
@@ -63,8 +72,33 @@ function loadState() {
 
   try {
     Object.assign(state, JSON.parse(saved));
+    migrateTeamNames();
   } catch {
     localStorage.removeItem(storageKey);
+  }
+}
+
+function migrateTeamNames() {
+  let changed = false;
+
+  state.players.forEach((player) => {
+    pots.forEach((pot) => {
+      const replacement = teamNameReplacements[player.picks[pot.id]];
+      if (!replacement) return;
+      player.picks[pot.id] = replacement;
+      changed = true;
+    });
+  });
+
+  Object.keys(state.results).forEach((potId) => {
+    const replacement = teamNameReplacements[state.results[potId]];
+    if (!replacement) return;
+    state.results[potId] = replacement;
+    changed = true;
+  });
+
+  if (changed) {
+    localStorage.setItem(storageKey, JSON.stringify(state));
   }
 }
 
@@ -117,6 +151,7 @@ async function loadCloudState() {
   }
 
   Object.assign(state, data.state, { adminMode: false });
+  migrateTeamNames();
   localStorage.setItem(storageKey, JSON.stringify(state));
   render();
   setSyncStatus("Supabase synced", "synced");
@@ -307,14 +342,39 @@ function renderPlayers() {
 
   sortedPlayers.forEach((player) => {
     const card = document.createElement("div");
-    card.className = `player-card ${player.id === state.selectedPlayerId ? "selected" : ""}`;
+    card.className = `player-card collapsed ${player.id === state.selectedPlayerId ? "selected" : ""}`;
+
+    const header = document.createElement("button");
+    header.className = "player-card-header";
+    header.type = "button";
+    header.setAttribute("aria-expanded", "false");
 
     const name = document.createElement("h3");
     name.textContent = player.name;
 
-    const status = document.createElement("p");
-    status.textContent = `${player.locked ? "Locked" : "Open"} - ${getPickCount(player)}/4 picked`;
-    status.className = player.locked ? "status-locked" : "status-open";
+    const tags = document.createElement("div");
+    tags.className = "player-tags";
+
+    const pickTag = document.createElement("span");
+    pickTag.className = hasCompletePicks(player) ? "player-tag complete" : "player-tag incomplete";
+    pickTag.textContent = hasCompletePicks(player) ? "4/4 picked" : `${getPickCount(player)}/4 picked`;
+
+    const lockTag = document.createElement("span");
+    lockTag.className = player.locked ? "player-tag locked" : "player-tag open";
+    lockTag.textContent = player.locked ? "Locked" : "Open";
+
+    const toggleTag = document.createElement("span");
+    toggleTag.className = "player-toggle-label";
+    toggleTag.textContent = "Expand";
+
+    tags.appendChild(pickTag);
+    tags.appendChild(lockTag);
+    tags.appendChild(toggleTag);
+    header.appendChild(name);
+    header.appendChild(tags);
+
+    const body = document.createElement("div");
+    body.className = "player-card-body";
 
     const actions = document.createElement("div");
     actions.className = "card-actions";
@@ -344,10 +404,17 @@ function renderPlayers() {
       actions.appendChild(resetBtn);
     }
 
-    card.appendChild(name);
-    card.appendChild(status);
-    card.appendChild(createPickLines(player));
-    card.appendChild(actions);
+    body.appendChild(createPickLines(player));
+    body.appendChild(actions);
+    card.appendChild(header);
+    card.appendChild(body);
+
+    header.addEventListener("click", () => {
+      const isCollapsed = card.classList.toggle("collapsed");
+      toggleTag.textContent = isCollapsed ? "Expand" : "Collapse";
+      header.setAttribute("aria-expanded", String(!isCollapsed));
+    });
+
     playersList.appendChild(card);
   });
 }
@@ -574,16 +641,20 @@ function promptAdmin() {
   }
 }
 
-addPlayerBtn.addEventListener("click", () => {
-  openModal("Add players", "Enter one co-worker name per line", (value) => {
-    const names = parsePlayerNames(value);
-    if (names.length > 0) createPlayers(names);
+if (addPlayerBtn) {
+  addPlayerBtn.addEventListener("click", () => {
+    openModal("Add players", "Enter one co-worker name per line", (value) => {
+      const names = parsePlayerNames(value);
+      if (names.length > 0) createPlayers(names);
+    });
   });
-});
+}
 
-importPlayersBtn.addEventListener("click", () => {
-  importPlayersFromFile(true);
-});
+if (importPlayersBtn) {
+  importPlayersBtn.addEventListener("click", () => {
+    importPlayersFromFile(true);
+  });
+}
 
 adminModeBtn.addEventListener("click", promptAdmin);
 
