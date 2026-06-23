@@ -13,7 +13,7 @@ A tablet-friendly local web app for a workplace World Cup pot-pick game.
 - Admin mode can unlock picks and select the winning team for each pot
 - Admin mode can reset all picks for a player
 - Winners are shown per pot based on the saved player picks
-- Leaderboard ranks players by matched pot winners
+- Leaderboard ranks players by live match points from their picked teams
 - Leaderboard and Pot Results start collapsed and can be expanded
 - World Cup progress bar loads fixture status from a public fixtures API with static JSON fallback
 - State is saved in the browser with `localStorage`

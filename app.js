@@ -60,6 +60,10 @@ const stadiumTimeZones = {
 };
 let supabaseClient = null;
 let cloudSaveTimer = null;
+let matchData = {
+  loaded: false,
+  stats: new Map(),
+};
 
 const state = {
   players: [],
@@ -285,6 +289,12 @@ async function fetchJsonFromSources(sources) {
   return { data: null, source: null };
 }
 
+function unwrapApiList(data, key) {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data[key])) return data[key];
+  return [];
+}
+
 function normalizeBoolean(value) {
   return String(value).toLowerCase() === "true" || value === true;
 }
@@ -351,6 +361,93 @@ function createTeamNameMap(teams) {
   return map;
 }
 
+function normalizeTeamName(name) {
+  const normalized = String(name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+  const aliases = {
+    "cote d'ivoire": "ivory coast",
+    "cote d’ivoire": "ivory coast",
+    "ivory coast": "ivory coast",
+    "ir iran": "iran",
+    "iran": "iran",
+    "korea republic": "south korea",
+    "south korea": "south korea",
+    "turkiye": "turkiye",
+    "türkiye": "turkiye",
+    "czechia": "czech republic",
+    "czech republic": "czech republic",
+    "congo dr": "dr congo",
+    "dr congo": "dr congo",
+    "dr. congo": "dr congo",
+    "cape verde": "cabo verde",
+    "cabo verde": "cabo verde",
+  };
+
+  return aliases[normalized] || normalized;
+}
+
+function createEmptyTeamStats(name) {
+  return {
+    name,
+    played: 0,
+    wins: 0,
+    draws: 0,
+    losses: 0,
+    goalsFor: 0,
+    goalsAgainst: 0,
+    goalDifference: 0,
+    points: 0,
+  };
+}
+
+function addTeamMatchStats(stats, teamName, goalsFor, goalsAgainst) {
+  const key = normalizeTeamName(teamName);
+  if (!key) return;
+
+  const teamStats = stats.get(key) || createEmptyTeamStats(teamName);
+  teamStats.played += 1;
+  teamStats.goalsFor += goalsFor;
+  teamStats.goalsAgainst += goalsAgainst;
+  teamStats.goalDifference = teamStats.goalsFor - teamStats.goalsAgainst;
+
+  if (goalsFor > goalsAgainst) {
+    teamStats.wins += 1;
+    teamStats.points += 3;
+  } else if (goalsFor === goalsAgainst) {
+    teamStats.draws += 1;
+    teamStats.points += 1;
+  } else {
+    teamStats.losses += 1;
+  }
+
+  stats.set(key, teamStats);
+}
+
+function buildTeamStats(matches, teamNames) {
+  const stats = new Map();
+
+  matches.forEach((match) => {
+    if (getFixtureStatus(match) !== "played") return;
+
+    const homeName = match.home_team_name_en || teamNames.get(String(match.home_team_id));
+    const awayName = match.away_team_name_en || teamNames.get(String(match.away_team_id));
+    const homeScore = Number(match.home_score);
+    const awayScore = Number(match.away_score);
+
+    if (!homeName || !awayName || Number.isNaN(homeScore) || Number.isNaN(awayScore)) return;
+
+    addTeamMatchStats(stats, homeName, homeScore, awayScore);
+    addTeamMatchStats(stats, awayName, awayScore, homeScore);
+  });
+
+  return stats;
+}
+
 function formatMatchDate(date) {
   if (!date) return "date TBC";
   return `${date.toLocaleString("en-ZA", {
@@ -363,8 +460,9 @@ function formatMatchDate(date) {
 }
 
 function updateMatchProgress(matches, teams, source) {
-  const safeMatches = Array.isArray(matches) ? matches : [];
-  const teamNames = createTeamNameMap(teams);
+  const safeMatches = unwrapApiList(matches, "games");
+  const safeTeams = unwrapApiList(teams, "teams");
+  const teamNames = createTeamNameMap(safeTeams);
   const total = safeMatches.length || 104;
   const statuses = safeMatches.map((match) => ({ match, status: getFixtureStatus(match), date: parseFixtureDate(match) }));
   const played = statuses.filter((item) => item.status === "played").length;
@@ -389,6 +487,11 @@ function updateMatchProgress(matches, teams, source) {
     nextMatchText.textContent = played === total ? "Tournament complete." : "No upcoming fixture found.";
   }
 
+  matchData = {
+    loaded: true,
+    stats: buildTeamStats(safeMatches, teamNames),
+  };
+  renderLeaderboard();
   setMatchApiStatus(source && source.includes("raw.githubusercontent.com") ? "Static fixtures" : "Live API connected", "synced");
 }
 
@@ -629,6 +732,38 @@ function renderPots() {
 }
 
 function getPlayerScore(player) {
+  if (matchData.loaded) {
+    const pickedTeams = pots
+      .map((pot) => player.picks[pot.id])
+      .filter(Boolean)
+      .map((team) => matchData.stats.get(normalizeTeamName(team)) || createEmptyTeamStats(team));
+
+    const totals = pickedTeams.reduce(
+      (acc, team) => {
+        acc.points += team.points;
+        acc.played += team.played;
+        acc.wins += team.wins;
+        acc.draws += team.draws;
+        acc.losses += team.losses;
+        acc.goalDifference += team.goalDifference;
+        return acc;
+      },
+      { points: 0, played: 0, wins: 0, draws: 0, losses: 0, goalDifference: 0 }
+    );
+
+    return {
+      player,
+      score: totals.points,
+      decided: totals.played,
+      wins: totals.wins,
+      draws: totals.draws,
+      losses: totals.losses,
+      goalDifference: totals.goalDifference,
+      winningTeams: pickedTeams.filter((team) => team.wins > 0),
+      matchBased: true,
+    };
+  }
+
   const winningPots = pots.filter((pot) => state.results[pot.id]);
   const winningTeams = winningPots.filter((pot) => player.picks[pot.id] === state.results[pot.id]);
 
@@ -644,7 +779,9 @@ function renderLeaderboard() {
   leaderboardList.innerHTML = "";
 
   const decidedCount = pots.filter((pot) => state.results[pot.id]).length;
-  leaderboardSummary.textContent = `${decidedCount} pot${decidedCount === 1 ? "" : "s"} decided`;
+  leaderboardSummary.textContent = matchData.loaded
+    ? "Live match points"
+    : `${decidedCount} pot${decidedCount === 1 ? "" : "s"} decided`;
 
   if (state.players.length === 0) {
     const empty = document.createElement("div");
@@ -656,7 +793,13 @@ function renderLeaderboard() {
 
   const rows = state.players
     .map(getPlayerScore)
-    .sort((a, b) => b.score - a.score || a.player.name.localeCompare(b.player.name));
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        (b.wins || 0) - (a.wins || 0) ||
+        (b.goalDifference || 0) - (a.goalDifference || 0) ||
+        a.player.name.localeCompare(b.player.name)
+    );
 
   rows.forEach((row, index) => {
     const item = document.createElement("div");
@@ -673,12 +816,14 @@ function renderLeaderboard() {
     name.textContent = row.player.name;
 
     const subtext = document.createElement("span");
-    const winningLabels = row.winningTeams.map((pot) => `${pot.label}: ${state.results[pot.id]}`).join(", ");
+    const winningLabels = row.matchBased
+      ? `${row.decided} team games - ${row.wins}W ${row.draws}D ${row.losses}L - GD ${row.goalDifference >= 0 ? "+" : ""}${row.goalDifference}`
+      : row.winningTeams.map((pot) => `${pot.label}: ${state.results[pot.id]}`).join(", ");
     subtext.textContent = winningLabels || `${getPickCount(row.player)}/4 picked - ${row.player.locked ? "locked" : "open"}`;
 
     const score = document.createElement("div");
     score.className = "leaderboard-score";
-    score.textContent = `${row.score}/${row.decided}`;
+    score.textContent = row.matchBased ? `${row.score} pts` : `${row.score}/${row.decided}`;
 
     details.appendChild(name);
     details.appendChild(subtext);
