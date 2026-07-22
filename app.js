@@ -1,93 +1,53 @@
-const pots = [
-  {
-    id: 1,
-    label: "Pot 1",
-    teams: ["Canada", "Mexico", "USA", "Spain", "Argentina", "France", "England", "Brazil", "Portugal", "Netherlands", "Belgium", "Germany"],
-  },
-  {
-    id: 2,
-    label: "Pot 2",
-    teams: ["Croatia", "Morocco", "Colombia", "Uruguay", "Switzerland", "Japan", "Senegal", "IR Iran", "Korea Republic", "Ecuador", "Austria", "Australia"],
-  },
-  {
-    id: 3,
-    label: "Pot 3",
-    teams: ["Norway", "Panama", "Egypt", "Algeria", "Scotland", "Paraguay", "Tunisia", "C\u00f4te d\u2019Ivoire", "Uzbekistan", "Qatar", "Saudi Arabia", "South Africa"],
-  },
-  {
-    id: 4,
-    label: "Pot 4",
-    teams: ["Jordan", "Cabo Verde", "Ghana", "Cura\u00e7ao", "Haiti", "New Zealand", "Bosnia and Herzegovina", "Sweden", "T\u00fcrkiye", "Czechia", "Congo DR", "Iraq"],
-  },
-];
-
-const teamNameReplacements = {
-  "European Play-Off A winner": "Bosnia and Herzegovina",
-  "European Play-Off B winner": "Sweden",
-  "European Play-Off C winner": "T\u00fcrkiye",
-  "European Play-Off D winner": "Czechia",
-  "FIFA Play-Off Tournament winner 1": "Congo DR",
-  "FIFA Play-Off Tournament winner 2": "Iraq",
-};
-
 const adminPassword = "1234";
-const storageKey = "swcPotGameState";
-const supabaseTable = "game_state";
-const supabaseRecordId = "main";
-const matchApiSources = [
-  "https://worldcup26.ir/get/games",
-  "https://raw.githubusercontent.com/rezarahiminia/worldcup2026/main/football.matches.json",
-];
-const teamApiSource = "https://raw.githubusercontent.com/rezarahiminia/worldcup2026/main/football.teams.json";
 const southAfricaTimeZone = "Africa/Johannesburg";
-const stadiumTimeZones = {
-  1: "America/Mexico_City",
-  2: "America/Mexico_City",
-  3: "America/Mexico_City",
-  4: "America/Chicago",
-  5: "America/New_York",
-  6: "America/Los_Angeles",
-  7: "America/New_York",
-  8: "America/New_York",
-  9: "America/Chicago",
-  10: "America/Chicago",
-  11: "America/Los_Angeles",
-  12: "America/New_York",
-  13: "America/Los_Angeles",
-  14: "America/New_York",
-  15: "America/Toronto",
-  16: "America/Vancouver",
-};
+const MARGIN_TOLERANCE = 5;
+const GRAND_SLAM_BONUS = 3;
+const REFRESH_INTERVAL_MS = 60000;
+
 let supabaseClient = null;
-let cloudSaveTimer = null;
-let matchData = {
-  loaded: false,
-  stats: new Map(),
-};
+let session = null;
+let currentPlayer = null;
+let players = [];
+let matches = [];
+let predictions = [];
+let adminMode = false;
+let pendingEmail = "";
 
-const state = {
-  players: [],
-  selectedPlayerId: null,
-  adminMode: false,
-  results: {},
-};
+const syncStatus = document.getElementById("syncStatus");
+const accountStatus = document.getElementById("accountStatus");
+const signOutBtn = document.getElementById("signOutBtn");
+const adminModeBtn = document.getElementById("adminModeBtn");
 
-const playersList = document.getElementById("playersList");
-const potsGrid = document.getElementById("potsGrid");
-const matchApiStatus = document.getElementById("matchApiStatus");
+const loginPanel = document.getElementById("loginPanel");
+const loginEmailStep = document.getElementById("loginEmailStep");
+const loginEmail = document.getElementById("loginEmail");
+const sendCodeBtn = document.getElementById("sendCodeBtn");
+const loginCodeStep = document.getElementById("loginCodeStep");
+const loginCodeEmail = document.getElementById("loginCodeEmail");
+const loginCode = document.getElementById("loginCode");
+const verifyCodeBtn = document.getElementById("verifyCodeBtn");
+const changeEmailBtn = document.getElementById("changeEmailBtn");
+const loginClaimStep = document.getElementById("loginClaimStep");
+const claimPlayerList = document.getElementById("claimPlayerList");
+const claimNewName = document.getElementById("claimNewName");
+const claimNewNameBtn = document.getElementById("claimNewNameBtn");
+const loginMessage = document.getElementById("loginMessage");
+
+const appContent = document.getElementById("appContent");
+const progressPill = document.getElementById("progressPill");
 const matchesPlayedText = document.getElementById("matchesPlayedText");
 const nextMatchText = document.getElementById("nextMatchText");
 const liveMatchesText = document.getElementById("liveMatchesText");
 const upcomingMatchesText = document.getElementById("upcomingMatchesText");
 const matchProgressFill = document.getElementById("matchProgressFill");
+const myPicksSummary = document.getElementById("myPicksSummary");
+const matchesGroups = document.getElementById("matchesGroups");
 const leaderboardSummary = document.getElementById("leaderboardSummary");
 const leaderboardList = document.getElementById("leaderboardList");
-const adminModeBtn = document.getElementById("adminModeBtn");
-const resultsGrid = document.getElementById("resultsGrid");
-const winnersPanel = document.getElementById("winnersPanel");
-const importPlayersBtn = document.getElementById("importPlayersBtn");
+const adminPanel = document.getElementById("adminPanel");
+const adminMatchesGrid = document.getElementById("adminMatchesGrid");
 const addPlayerBtn = document.getElementById("addPlayerBtn");
-const syncStatus = document.getElementById("syncStatus");
+
 const modal = document.getElementById("modal");
 const modalTitle = document.getElementById("modalTitle");
 const modalInput = document.getElementById("modalInput");
@@ -95,363 +55,30 @@ const modalCancelBtn = document.getElementById("modalCancelBtn");
 const modalSaveBtn = document.getElementById("modalSaveBtn");
 const togglePanelBtns = document.querySelectorAll(".toggle-panel-btn");
 
-function saveState() {
-  localStorage.setItem(storageKey, JSON.stringify(state));
-  queueCloudSave();
-}
-
-function loadState() {
-  const saved = localStorage.getItem(storageKey);
-  if (!saved) return;
-
-  try {
-    Object.assign(state, JSON.parse(saved));
-    migrateTeamNames();
-  } catch {
-    localStorage.removeItem(storageKey);
-  }
-}
-
-function migrateTeamNames() {
-  let changed = false;
-
-  state.players.forEach((player) => {
-    pots.forEach((pot) => {
-      const replacement = teamNameReplacements[player.picks[pot.id]];
-      if (!replacement) return;
-      player.picks[pot.id] = replacement;
-      changed = true;
-    });
-  });
-
-  Object.keys(state.results).forEach((potId) => {
-    const replacement = teamNameReplacements[state.results[potId]];
-    if (!replacement) return;
-    state.results[potId] = replacement;
-    changed = true;
-  });
-
-  if (changed) {
-    localStorage.setItem(storageKey, JSON.stringify(state));
-  }
-}
-
 function setSyncStatus(text, status = "") {
   syncStatus.textContent = text;
   syncStatus.className = `sync-status ${status}`.trim();
 }
 
-function setMatchApiStatus(text, status = "") {
-  matchApiStatus.textContent = text;
-  matchApiStatus.className = `panel-pill ${status}`.trim();
+function setLoginMessage(text, isError = false) {
+  loginMessage.textContent = text;
+  loginMessage.className = `login-message ${isError ? "error" : ""}`.trim();
 }
 
-function getSyncedState() {
-  return {
-    players: state.players,
-    selectedPlayerId: state.selectedPlayerId,
-    adminMode: false,
-    results: state.results,
-  };
+function showLoginStep(step) {
+  [loginEmailStep, loginCodeStep, loginClaimStep].forEach((el) => el.classList.add("hidden"));
+  step.classList.remove("hidden");
 }
 
-function initSupabase() {
-  const config = window.SUPABASE_CONFIG;
-  if (!config || !config.url || !config.anonKey || !window.supabase) {
-    setSyncStatus("Local only");
-    return false;
-  }
-
-  supabaseClient = window.supabase.createClient(config.url, config.anonKey, {
-    auth: { persistSession: false },
-  });
-  setSyncStatus("Supabase ready", "synced");
-  return true;
+function isMatchLocked(match) {
+  return new Date(match.kickoff_at).getTime() <= Date.now();
 }
 
-async function loadCloudState() {
-  if (!supabaseClient) return false;
-  setSyncStatus("Loading Supabase", "saving");
-
-  const { data, error } = await supabaseClient
-    .from(supabaseTable)
-    .select("state")
-    .eq("id", supabaseRecordId)
-    .maybeSingle();
-
-  if (error) {
-    setSyncStatus("Supabase error", "error");
-    return false;
-  }
-
-  if (!data || !data.state) {
-    setSyncStatus("Supabase ready", "synced");
-    return false;
-  }
-
-  Object.assign(state, data.state, { adminMode: false });
-  migrateTeamNames();
-  localStorage.setItem(storageKey, JSON.stringify(state));
-  render();
-  setSyncStatus("Synced", "synced");
-  return true;
-}
-
-function queueCloudSave() {
-  if (!supabaseClient) return;
-
-  window.clearTimeout(cloudSaveTimer);
-  cloudSaveTimer = window.setTimeout(() => {
-    saveCloudState();
-  }, 350);
-}
-
-async function saveCloudState() {
-  if (!supabaseClient) return;
-  setSyncStatus("Saving", "saving");
-
-  const { error } = await supabaseClient.from(supabaseTable).upsert({
-    id: supabaseRecordId,
-    state: getSyncedState(),
-    updated_at: new Date().toISOString(),
-  });
-
-  setSyncStatus(error ? "Supabase error" : "Synced", error ? "error" : "synced");
-}
-
-function createPlayer(name) {
-  const randomId =
-    globalThis.crypto && typeof globalThis.crypto.randomUUID === "function"
-      ? globalThis.crypto.randomUUID()
-      : Math.random().toString(16).slice(2);
-  const id = `${Date.now()}-${randomId}`;
-  state.players.push({ id, name, locked: false, picks: { 1: null, 2: null, 3: null, 4: null } });
-  state.selectedPlayerId = id;
-}
-
-function createPlayers(names) {
-  const existingNames = new Set(state.players.map((player) => player.name.toLowerCase()));
-
-  names.forEach((name) => {
-    const normalized = name.toLowerCase();
-    if (existingNames.has(normalized)) return;
-    createPlayer(name);
-    existingNames.add(normalized);
-  });
-
-  saveState();
-  render();
-}
-
-function parsePlayerNames(text) {
-  return text
-    .split(/\r?\n|,/)
-    .map((name) => name.trim())
-    .filter(Boolean);
-}
-
-async function importPlayersFromFile(showMessage = false) {
-  try {
-    const response = await fetch("players.txt", { cache: "no-store" });
-    if (!response.ok) throw new Error("players.txt could not be loaded.");
-
-    const names = parsePlayerNames(await response.text());
-    const countBefore = state.players.length;
-    if (names.length > 0) createPlayers(names);
-
-    if (showMessage) {
-      const importedCount = state.players.length - countBefore;
-      alert(importedCount > 0 ? `Imported ${importedCount} player(s).` : "No new players found in players.txt.");
-    }
-  } catch {
-    if (showMessage) {
-      alert("Could not import players.txt. Open the app from the local server URL instead of directly from disk.");
-    }
-  }
-}
-
-async function loadPlayersFromFileIfEmpty() {
-  if (state.players.length > 0) return;
-  await importPlayersFromFile(false);
-}
-
-async function fetchJsonFromSources(sources) {
-  for (const source of sources) {
-    try {
-      const response = await fetch(source, { cache: "no-store" });
-      if (!response.ok) continue;
-      return { data: await response.json(), source };
-    } catch {
-      // Try the next source.
-    }
-  }
-
-  return { data: null, source: null };
-}
-
-function unwrapApiList(data, key) {
-  if (Array.isArray(data)) return data;
-  if (data && Array.isArray(data[key])) return data[key];
-  return [];
-}
-
-function normalizeBoolean(value) {
-  return String(value).toLowerCase() === "true" || value === true;
-}
-
-function getTimeZoneOffset(date, timeZone) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(date);
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  const zonedTime = Date.UTC(values.year, Number(values.month) - 1, values.day, values.hour, values.minute, values.second);
-  return zonedTime - date.getTime();
-}
-
-function createDateFromTimeZone(year, month, day, hours, minutes, timeZone) {
-  const utcTime = Date.UTC(year, month - 1, day, hours || 0, minutes || 0);
-  const firstOffset = getTimeZoneOffset(new Date(utcTime), timeZone);
-  const firstDate = new Date(utcTime - firstOffset);
-  const secondOffset = getTimeZoneOffset(firstDate, timeZone);
-  return new Date(utcTime - secondOffset);
-}
-
-function parseFixtureDate(match) {
-  const value = match.local_date || match.date;
-  if (!value) return null;
-
-  if (String(value).includes("T")) {
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  const [datePart, timePart = "00:00"] = String(value).split(" ");
-  const [month, day, year] = datePart.split("/").map(Number);
-  const [hours, minutes] = timePart.split(":").map(Number);
-
-  if (!year || !month || !day) return null;
-  const stadiumTimeZone = stadiumTimeZones[match.stadium_id] || southAfricaTimeZone;
-  return createDateFromTimeZone(year, month, day, hours, minutes, stadiumTimeZone);
-}
-
-function getFixtureStatus(match) {
-  const elapsed = String(match.time_elapsed || match.status || "").toLowerCase();
-  if (normalizeBoolean(match.finished) || ["finished", "ft", "aet", "pen"].includes(elapsed)) return "played";
-  if (["live", "inplay", "playing", "halftime", "ht"].includes(elapsed) || Number(elapsed) > 0) return "live";
-  return "upcoming";
-}
-
-function createTeamNameMap(teams) {
-  const map = new Map();
-  if (!Array.isArray(teams)) return map;
-
-  teams.forEach((team) => {
-    const id = String(team.id || team.team_id || "");
-    const name = team.name_en || team.name || team.country || id;
-    if (id && name) map.set(id, name);
-  });
-
-  return map;
-}
-
-function normalizeTeamName(name) {
-  const normalized = String(name || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-
-  const aliases = {
-    "cote d'ivoire": "ivory coast",
-    "cote d’ivoire": "ivory coast",
-    "ivory coast": "ivory coast",
-    "ir iran": "iran",
-    "iran": "iran",
-    "korea republic": "south korea",
-    "south korea": "south korea",
-    "turkiye": "turkiye",
-    "türkiye": "turkiye",
-    "czechia": "czech republic",
-    "czech republic": "czech republic",
-    "congo dr": "dr congo",
-    "dr congo": "dr congo",
-    "dr. congo": "dr congo",
-    "cape verde": "cabo verde",
-    "cabo verde": "cabo verde",
-  };
-
-  return aliases[normalized] || normalized;
-}
-
-function createEmptyTeamStats(name) {
-  return {
-    name,
-    played: 0,
-    wins: 0,
-    draws: 0,
-    losses: 0,
-    goalsFor: 0,
-    goalsAgainst: 0,
-    goalDifference: 0,
-    points: 0,
-  };
-}
-
-function addTeamMatchStats(stats, teamName, goalsFor, goalsAgainst) {
-  const key = normalizeTeamName(teamName);
-  if (!key) return;
-
-  const teamStats = stats.get(key) || createEmptyTeamStats(teamName);
-  teamStats.played += 1;
-  teamStats.goalsFor += goalsFor;
-  teamStats.goalsAgainst += goalsAgainst;
-  teamStats.goalDifference = teamStats.goalsFor - teamStats.goalsAgainst;
-
-  if (goalsFor > goalsAgainst) {
-    teamStats.wins += 1;
-    teamStats.points += 3;
-  } else if (goalsFor === goalsAgainst) {
-    teamStats.draws += 1;
-    teamStats.points += 1;
-  } else {
-    teamStats.losses += 1;
-  }
-
-  stats.set(key, teamStats);
-}
-
-function buildTeamStats(matches, teamNames) {
-  const stats = new Map();
-
-  matches.forEach((match) => {
-    if (getFixtureStatus(match) !== "played") return;
-
-    const homeName = match.home_team_name_en || teamNames.get(String(match.home_team_id));
-    const awayName = match.away_team_name_en || teamNames.get(String(match.away_team_id));
-    const homeScore = Number(match.home_score);
-    const awayScore = Number(match.away_score);
-
-    if (!homeName || !awayName || Number.isNaN(homeScore) || Number.isNaN(awayScore)) return;
-
-    addTeamMatchStats(stats, homeName, homeScore, awayScore);
-    addTeamMatchStats(stats, awayName, awayScore, homeScore);
-  });
-
-  return stats;
-}
-
-function formatMatchDate(date) {
-  if (!date) return "date TBC";
+function formatKickoff(match) {
+  const date = new Date(match.kickoff_at);
   return `${date.toLocaleString("en-ZA", {
     timeZone: southAfricaTimeZone,
+    weekday: "short",
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -459,19 +86,338 @@ function formatMatchDate(date) {
   })} SAST`;
 }
 
-function updateMatchProgress(matches, teams, source) {
-  const safeMatches = unwrapApiList(matches, "games");
-  const safeTeams = unwrapApiList(teams, "teams");
-  const teamNames = createTeamNameMap(safeTeams);
-  const total = safeMatches.length || 104;
-  const statuses = safeMatches.map((match) => ({ match, status: getFixtureStatus(match), date: parseFixtureDate(match) }));
-  const played = statuses.filter((item) => item.status === "played").length;
-  const live = statuses.filter((item) => item.status === "live").length;
+// ---------------------------------------------------------------------------
+// Supabase init + data loading
+// ---------------------------------------------------------------------------
+
+function initSupabase() {
+  const config = window.SUPABASE_CONFIG;
+  if (!config || !config.url || !config.anonKey || !window.supabase) {
+    setSyncStatus("Supabase not configured", "error");
+    return false;
+  }
+
+  supabaseClient = window.supabase.createClient(config.url, config.anonKey);
+  setSyncStatus("Connected", "synced");
+  return true;
+}
+
+async function loadPlayers() {
+  const { data, error } = await supabaseClient.from("players").select("*").order("name");
+  if (error) {
+    setSyncStatus("Supabase error", "error");
+    return;
+  }
+  players = data || [];
+}
+
+async function loadMatches() {
+  const { data, error } = await supabaseClient.from("matches").select("*").order("sort_order");
+  if (error) {
+    setSyncStatus("Supabase error", "error");
+    return;
+  }
+  matches = data || [];
+}
+
+async function loadPredictions() {
+  const { data, error } = await supabaseClient.from("predictions").select("*");
+  if (error) {
+    setSyncStatus("Supabase error", "error");
+    return;
+  }
+  predictions = data || [];
+}
+
+async function loadAllData() {
+  await Promise.all([loadPlayers(), loadMatches(), loadPredictions()]);
+}
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+async function sendLoginCode() {
+  const email = loginEmail.value.trim().toLowerCase();
+  if (!email) return;
+
+  sendCodeBtn.disabled = true;
+  setLoginMessage("Sending code...");
+
+  const { error } = await supabaseClient.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true },
+  });
+
+  sendCodeBtn.disabled = false;
+
+  if (error) {
+    setLoginMessage(error.message, true);
+    return;
+  }
+
+  pendingEmail = email;
+  loginCodeEmail.textContent = email;
+  loginCode.value = "";
+  setLoginMessage("");
+  showLoginStep(loginCodeStep);
+}
+
+async function verifyLoginCode() {
+  const token = loginCode.value.trim();
+  if (!token) return;
+
+  verifyCodeBtn.disabled = true;
+  setLoginMessage("Verifying...");
+
+  const { data, error } = await supabaseClient.auth.verifyOtp({
+    email: pendingEmail,
+    token,
+    type: "email",
+  });
+
+  verifyCodeBtn.disabled = false;
+
+  if (error) {
+    setLoginMessage(error.message, true);
+    return;
+  }
+
+  session = data.session;
+  setLoginMessage("");
+  await afterSignIn();
+}
+
+async function afterSignIn() {
+  pendingEmail = pendingEmail || session.user.email || "";
+  await loadPlayers();
+
+  const linkedPlayer = players.find((player) => player.auth_uid === session.user.id);
+  if (linkedPlayer) {
+    currentPlayer = linkedPlayer;
+    await startApp();
+    return;
+  }
+
+  renderClaimStep();
+  showLoginStep(loginClaimStep);
+}
+
+function renderClaimStep() {
+  claimPlayerList.innerHTML = "";
+  const unclaimed = players.filter((player) => !player.auth_uid);
+
+  if (unclaimed.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = "No unclaimed names left - type yours below to be added.";
+    claimPlayerList.appendChild(empty);
+    return;
+  }
+
+  unclaimed.forEach((player) => {
+    const btn = document.createElement("button");
+    btn.className = "claim-player-btn";
+    btn.textContent = player.name;
+    btn.addEventListener("click", () => claimPlayer(player.id));
+    claimPlayerList.appendChild(btn);
+  });
+}
+
+async function claimPlayer(playerId) {
+  const { data, error } = await supabaseClient
+    .from("players")
+    .update({ auth_uid: session.user.id, email: pendingEmail })
+    .eq("id", playerId)
+    .is("auth_uid", null)
+    .select()
+    .single();
+
+  if (error || !data) {
+    setLoginMessage("That name was just claimed by someone else - pick another.", true);
+    await loadPlayers();
+    renderClaimStep();
+    return;
+  }
+
+  currentPlayer = data;
+  await startApp();
+}
+
+async function claimNewPlayer() {
+  const name = claimNewName.value.trim();
+  if (!name) return;
+
+  const { data, error } = await supabaseClient
+    .from("players")
+    .insert({ name, auth_uid: session.user.id, email: pendingEmail })
+    .select()
+    .single();
+
+  if (error || !data) {
+    setLoginMessage(error ? error.message : "Could not add that name.", true);
+    return;
+  }
+
+  currentPlayer = data;
+  await startApp();
+}
+
+async function signOut() {
+  await supabaseClient.auth.signOut();
+  session = null;
+  currentPlayer = null;
+  appContent.classList.add("hidden");
+  accountStatus.classList.add("hidden");
+  signOutBtn.classList.add("hidden");
+  loginPanel.classList.remove("hidden");
+  loginEmail.value = "";
+  showLoginStep(loginEmailStep);
+}
+
+async function startApp() {
+  loginPanel.classList.add("hidden");
+  appContent.classList.remove("hidden");
+  accountStatus.textContent = `Signed in as ${currentPlayer.name}`;
+  accountStatus.classList.remove("hidden");
+  signOutBtn.classList.remove("hidden");
+
+  await loadAllData();
+  render();
+}
+
+// ---------------------------------------------------------------------------
+// Predictions
+// ---------------------------------------------------------------------------
+
+function getPrediction(matchId, playerId) {
+  return predictions.find((pr) => pr.match_id === matchId && pr.player_id === playerId);
+}
+
+async function savePrediction(matchId, homeScore, awayScore, statusEl) {
+  if (!currentPlayer) return;
+
+  statusEl.textContent = "Saving...";
+
+  const { data, error } = await supabaseClient
+    .from("predictions")
+    .upsert(
+      {
+        match_id: matchId,
+        player_id: currentPlayer.id,
+        predicted_home_score: homeScore,
+        predicted_away_score: awayScore,
+      },
+      { onConflict: "match_id,player_id" }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    statusEl.textContent = "Could not save - match may have kicked off.";
+    statusEl.classList.add("error");
+    return;
+  }
+
+  const existingIndex = predictions.findIndex((pr) => pr.match_id === matchId && pr.player_id === currentPlayer.id);
+  if (existingIndex >= 0) predictions[existingIndex] = data;
+  else predictions.push(data);
+
+  statusEl.textContent = "Saved";
+  statusEl.classList.remove("error");
+  renderMyPicksSummary();
+  renderLeaderboard();
+}
+
+// ---------------------------------------------------------------------------
+// Scoring
+// ---------------------------------------------------------------------------
+
+function isFinal(match) {
+  return match.home_score !== null && match.away_score !== null;
+}
+
+function computeLeaderboard() {
+  const totals = new Map();
+  players.forEach((player) => {
+    totals.set(player.id, { player, wp: 0, mp: 0, bp: 0, gsp: 0, points: 0 });
+  });
+
+  const finalMatches = matches.filter(isFinal);
+
+  finalMatches.forEach((match) => {
+    const actualMargin = match.home_score - match.away_score;
+    const matchPredictions = predictions.filter((pr) => pr.match_id === match.id);
+    if (matchPredictions.length === 0) return;
+
+    let minDiff = Infinity;
+    const withDiff = matchPredictions.map((pr) => {
+      const predictedMargin = pr.predicted_home_score - pr.predicted_away_score;
+      const diff = Math.abs(predictedMargin - actualMargin);
+      minDiff = Math.min(minDiff, diff);
+      return { pr, predictedMargin, diff };
+    });
+
+    withDiff.forEach(({ pr, predictedMargin, diff }) => {
+      const row = totals.get(pr.player_id);
+      if (!row) return;
+
+      if (Math.sign(predictedMargin) === Math.sign(actualMargin)) {
+        row.wp += 1;
+        row.points += 1;
+      }
+      if (diff <= MARGIN_TOLERANCE) {
+        row.mp += 1;
+        row.points += 1;
+      }
+      if (diff === minDiff) {
+        row.bp += 1;
+        row.points += 1;
+      }
+    });
+  });
+
+  const roundGroups = new Map();
+  finalMatches.forEach((match) => {
+    if (!roundGroups.has(match.round)) roundGroups.set(match.round, []);
+    roundGroups.get(match.round).push(match);
+  });
+
+  roundGroups.forEach((roundMatches) => {
+    players.forEach((player) => {
+      const roundPredictions = roundMatches.map((match) => getPrediction(match.id, player.id));
+      if (roundPredictions.some((pr) => !pr)) return;
+
+      const allCorrect = roundPredictions.every((pr, index) => {
+        const match = roundMatches[index];
+        const actualMargin = match.home_score - match.away_score;
+        const predictedMargin = pr.predicted_home_score - pr.predicted_away_score;
+        return Math.sign(predictedMargin) === Math.sign(actualMargin);
+      });
+
+      if (allCorrect) {
+        const row = totals.get(player.id);
+        row.gsp += 1;
+        row.points += GRAND_SLAM_BONUS;
+      }
+    });
+  });
+
+  return [...totals.values()].sort(
+    (a, b) => b.points - a.points || b.wp - a.wp || a.player.name.localeCompare(b.player.name)
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+
+function renderProgress() {
+  const total = matches.length;
+  const played = matches.filter(isFinal).length;
+  const live = matches.filter((match) => match.status === "live" && !isFinal(match)).length;
   const upcoming = Math.max(total - played - live, 0);
   const percent = total ? Math.round((played / total) * 100) : 0;
-  const next = statuses
-    .filter((item) => item.status === "upcoming")
-    .sort((a, b) => (a.date || new Date(8640000000000000)) - (b.date || new Date(8640000000000000)))[0];
 
   matchesPlayedText.textContent = `${played} / ${total} matches played`;
   liveMatchesText.textContent = `${live} live`;
@@ -479,327 +425,170 @@ function updateMatchProgress(matches, teams, source) {
   matchProgressFill.style.width = `${percent}%`;
   matchProgressFill.textContent = percent > 8 ? `${percent}%` : "";
 
-  if (next) {
-    const home = teamNames.get(String(next.match.home_team_id)) || `Team ${next.match.home_team_id}`;
-    const away = teamNames.get(String(next.match.away_team_id)) || `Team ${next.match.away_team_id}`;
-    nextMatchText.textContent = `Next: ${home} vs ${away} - ${formatMatchDate(next.date)}`;
-  } else {
-    nextMatchText.textContent = played === total ? "Tournament complete." : "No upcoming fixture found.";
-  }
+  const next = matches
+    .filter((match) => !isFinal(match))
+    .sort((a, b) => new Date(a.kickoff_at) - new Date(b.kickoff_at))[0];
 
-  matchData = {
-    loaded: true,
-    stats: buildTeamStats(safeMatches, teamNames),
-  };
-  renderLeaderboard();
-  setMatchApiStatus(source && source.includes("raw.githubusercontent.com") ? "Static fixtures" : "Live API connected", "synced");
+  nextMatchText.textContent = next
+    ? `Next: ${next.home_team} vs ${next.away_team} - ${formatKickoff(next)}`
+    : played === total
+    ? "Tournament complete."
+    : "No upcoming fixture found.";
+
+  progressPill.textContent = live > 0 ? "Live now" : "On track";
+  progressPill.className = `panel-pill ${live > 0 ? "saving" : "synced"}`;
 }
 
-async function loadMatchProgress() {
-  setMatchApiStatus("Loading fixtures", "saving");
-
-  const [{ data: matches, source }, { data: teams }] = await Promise.all([
-    fetchJsonFromSources(matchApiSources),
-    fetchJsonFromSources([teamApiSource]),
-  ]);
-
-  if (!matches) {
-    setMatchApiStatus("Fixture API unavailable", "error");
-    matchesPlayedText.textContent = "0 / 104 matches played";
-    nextMatchText.textContent = "Could not load fixtures. Try refreshing later.";
-    return;
-  }
-
-  updateMatchProgress(matches, teams, source);
+function renderMyPicksSummary() {
+  const predicted = matches.filter((match) => getPrediction(match.id, currentPlayer.id)).length;
+  myPicksSummary.textContent = `${predicted} / ${matches.length} predicted`;
 }
 
-function selectPlayer(playerId) {
-  state.selectedPlayerId = playerId;
-  render();
-}
+function renderMatchesGroups() {
+  matchesGroups.innerHTML = "";
 
-function getSelectedPlayer() {
-  return state.players.find((player) => player.id === state.selectedPlayerId);
-}
-
-function hasCompletePicks(player) {
-  return pots.every((pot) => Boolean(player.picks[pot.id]));
-}
-
-function getPickCount(player) {
-  return pots.filter((pot) => Boolean(player.picks[pot.id])).length;
-}
-
-function getMissingPickCount(player) {
-  return pots.length - getPickCount(player);
-}
-
-function getLockButtonText(player) {
-  if (player.locked) return state.adminMode ? "Unlock this player" : "Locked";
-  if (hasCompletePicks(player)) return "Lock this player";
-  return `${getMissingPickCount(player)} pick${getMissingPickCount(player) === 1 ? "" : "s"} left`;
-}
-
-function updatePlayerPick(playerId, potId, team) {
-  const player = state.players.find((item) => item.id === playerId);
-  if (!player || (player.locked && !state.adminMode)) return;
-
-  const isCurrentPick = player.picks[potId] === team;
-  if (isCurrentPick && (state.adminMode || !player.locked)) {
-    player.picks[potId] = null;
-  } else {
-    player.picks[potId] = team;
-  }
-
-  saveState();
-  render();
-}
-
-function resetPlayerPicks(playerId) {
-  if (!state.adminMode) return;
-
-  const player = state.players.find((item) => item.id === playerId);
-  if (!player) return;
-
-  const confirmed = confirm(`Clear all picks for ${player.name} and unlock this player?`);
-  if (!confirmed) return;
-
-  player.picks = { 1: null, 2: null, 3: null, 4: null };
-  player.locked = false;
-  saveState();
-  render();
-}
-
-function toggleLock(playerId) {
-  const player = state.players.find((item) => item.id === playerId);
-  if (!player || (!state.adminMode && player.locked)) return;
-
-  if (!player.locked && !hasCompletePicks(player)) {
-    alert(`${player.name} needs one team from every pot before their picks can be locked.`);
-    return;
-  }
-
-  player.locked = !player.locked;
-  saveState();
-  render();
-}
-
-function setResult(potId, team) {
-  if (!state.adminMode) return;
-  state.results[potId] = state.results[potId] === team ? null : team;
-  saveState();
-  render();
-}
-
-function createPickLines(player, emptyText = "-") {
-  const picksList = document.createElement("div");
-  picksList.className = "pick-lines";
-
-  pots.forEach((pot) => {
-    const line = document.createElement("div");
-    line.textContent = `${pot.label}: ${player.picks[pot.id] || emptyText}`;
-    picksList.appendChild(line);
-  });
-
-  return picksList;
-}
-
-function renderPlayers() {
-  playersList.innerHTML = "";
-
-  if (state.players.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    empty.textContent = "Add co-workers to start the pot pick game.";
-    playersList.appendChild(empty);
-    return;
-  }
-
-  const sortedPlayers = [...state.players].sort((a, b) => a.name.localeCompare(b.name));
-
-  sortedPlayers.forEach((player) => {
-    const card = document.createElement("div");
-    card.className = `player-card collapsed ${player.id === state.selectedPlayerId ? "selected" : ""}`;
-
-    const header = document.createElement("button");
-    header.className = "player-card-header";
-    header.type = "button";
-    header.setAttribute("aria-expanded", "false");
-
-    const name = document.createElement("h3");
-    name.textContent = player.name;
-
-    const tags = document.createElement("div");
-    tags.className = "player-tags";
-
-    const pickTag = document.createElement("span");
-    pickTag.className = hasCompletePicks(player) ? "player-tag complete" : "player-tag incomplete";
-    pickTag.textContent = hasCompletePicks(player) ? "4/4 picked" : `${getPickCount(player)}/4 picked`;
-
-    const lockTag = document.createElement("span");
-    lockTag.className = player.locked ? "player-tag locked" : "player-tag open";
-    lockTag.textContent = player.locked ? "Locked" : "Open";
-
-    const toggleTag = document.createElement("span");
-    toggleTag.className = "player-toggle-label";
-    toggleTag.textContent = "Expand";
-
-    tags.appendChild(pickTag);
-    tags.appendChild(lockTag);
-    tags.appendChild(toggleTag);
-    header.appendChild(name);
-    header.appendChild(tags);
-
-    const body = document.createElement("div");
-    body.className = "player-card-body";
-
-    const actions = document.createElement("div");
-    actions.className = "card-actions";
-
-    const selectBtn = document.createElement("button");
-    selectBtn.textContent = "Select";
-    selectBtn.addEventListener("click", () => selectPlayer(player.id));
-
-    const lockBtn = document.createElement("button");
-    lockBtn.textContent = getLockButtonText(player);
-    lockBtn.className = player.locked ? "danger-button" : "success-button";
-    lockBtn.disabled = (!state.adminMode && player.locked) || (!player.locked && !hasCompletePicks(player));
-    lockBtn.title = hasCompletePicks(player)
-      ? `Only locks picks for ${player.name}`
-      : `${player.name} still needs ${getMissingPickCount(player)} pick(s)`;
-    lockBtn.addEventListener("click", () => toggleLock(player.id));
-
-    actions.appendChild(selectBtn);
-    actions.appendChild(lockBtn);
-
-    if (state.adminMode) {
-      const resetBtn = document.createElement("button");
-      resetBtn.textContent = "Reset picks";
-      resetBtn.className = "danger-button";
-      resetBtn.disabled = getPickCount(player) === 0 && !player.locked;
-      resetBtn.addEventListener("click", () => resetPlayerPicks(player.id));
-      actions.appendChild(resetBtn);
+  const groups = [];
+  matches.forEach((match) => {
+    let group = groups.find((g) => g.round === match.round);
+    if (!group) {
+      group = { round: match.round, matches: [] };
+      groups.push(group);
     }
+    group.matches.push(match);
+  });
 
-    body.appendChild(createPickLines(player));
-    body.appendChild(actions);
-    card.appendChild(header);
-    card.appendChild(body);
+  groups.forEach((group) => {
+    const section = document.createElement("div");
+    section.className = "match-round";
 
-    header.addEventListener("click", () => {
-      const isCollapsed = card.classList.toggle("collapsed");
-      toggleTag.textContent = isCollapsed ? "Expand" : "Collapse";
-      header.setAttribute("aria-expanded", String(!isCollapsed));
-    });
+    const heading = document.createElement("h3");
+    const decided = group.matches.filter(isFinal).length;
+    heading.textContent = `${group.round} (${decided}/${group.matches.length} played)`;
+    section.appendChild(heading);
 
-    playersList.appendChild(card);
+    const grid = document.createElement("div");
+    grid.className = "match-cards";
+
+    group.matches.forEach((match) => grid.appendChild(renderMatchCard(match)));
+    section.appendChild(grid);
+    matchesGroups.appendChild(section);
   });
 }
 
-function renderPots() {
-  potsGrid.innerHTML = "";
-  const selectedPlayer = getSelectedPlayer();
+function renderMatchCard(match) {
+  const card = document.createElement("div");
+  card.className = "match-card";
 
-  pots.forEach((pot) => {
-    const card = document.createElement("div");
-    card.className = "pot-card";
+  const locked = isMatchLocked(match);
+  const final = isFinal(match);
+  if (locked) card.classList.add("locked");
 
-    const title = document.createElement("h3");
-    title.textContent = pot.label;
-    card.appendChild(title);
+  const teams = document.createElement("div");
+  teams.className = "match-teams";
+  teams.textContent = `${match.home_team} vs ${match.away_team}`;
+  card.appendChild(teams);
 
-    pot.teams.forEach((team) => {
-      const teamBtn = document.createElement("button");
-      teamBtn.className = "team-button";
-      teamBtn.textContent = team;
-      teamBtn.disabled = !selectedPlayer || (selectedPlayer.locked && !state.adminMode);
+  const meta = document.createElement("div");
+  meta.className = "match-meta";
+  meta.textContent = `${match.venue || "Venue TBC"} - ${formatKickoff(match)}`;
+  card.appendChild(meta);
 
-      if (selectedPlayer && selectedPlayer.picks[pot.id] === team) {
-        teamBtn.classList.add("selected");
-        teamBtn.title = "Click again to deselect";
-      }
-
-      if (selectedPlayer && selectedPlayer.locked && state.adminMode) {
-        teamBtn.title = "Admin can change or deselect locked picks";
-      }
-
-      teamBtn.addEventListener("click", () => updatePlayerPick(selectedPlayer.id, pot.id, team));
-      card.appendChild(teamBtn);
-    });
-
-    potsGrid.appendChild(card);
-  });
-}
-
-function getPlayerScore(player) {
-  if (matchData.loaded) {
-    const pickedTeams = pots
-      .map((pot) => player.picks[pot.id])
-      .filter(Boolean)
-      .map((team) => matchData.stats.get(normalizeTeamName(team)) || createEmptyTeamStats(team));
-
-    const totals = pickedTeams.reduce(
-      (acc, team) => {
-        acc.points += team.points;
-        acc.played += team.played;
-        acc.wins += team.wins;
-        acc.draws += team.draws;
-        acc.losses += team.losses;
-        acc.goalDifference += team.goalDifference;
-        return acc;
-      },
-      { points: 0, played: 0, wins: 0, draws: 0, losses: 0, goalDifference: 0 }
-    );
-
-    return {
-      player,
-      score: totals.points,
-      decided: totals.played,
-      wins: totals.wins,
-      draws: totals.draws,
-      losses: totals.losses,
-      goalDifference: totals.goalDifference,
-      winningTeams: pickedTeams.filter((team) => team.wins > 0),
-      matchBased: true,
-    };
+  if (final) {
+    const score = document.createElement("div");
+    score.className = "match-final-score";
+    score.textContent = `Final score: ${match.home_score} - ${match.away_score}`;
+    card.appendChild(score);
   }
 
-  const winningPots = pots.filter((pot) => state.results[pot.id]);
-  const winningTeams = winningPots.filter((pot) => player.picks[pot.id] === state.results[pot.id]);
+  const own = getPrediction(match.id, currentPlayer.id);
 
-  return {
-    player,
-    score: winningTeams.length,
-    decided: winningPots.length,
-    winningTeams,
-  };
+  const form = document.createElement("div");
+  form.className = "prediction-form";
+
+  const homeInput = document.createElement("input");
+  homeInput.type = "number";
+  homeInput.min = "0";
+  homeInput.placeholder = match.home_team;
+  homeInput.value = own ? own.predicted_home_score : "";
+
+  const sep = document.createElement("span");
+  sep.textContent = "-";
+
+  const awayInput = document.createElement("input");
+  awayInput.type = "number";
+  awayInput.min = "0";
+  awayInput.placeholder = match.away_team;
+  awayInput.value = own ? own.predicted_away_score : "";
+
+  const saveBtn = document.createElement("button");
+  saveBtn.textContent = own ? "Update" : "Predict";
+
+  const statusEl = document.createElement("span");
+  statusEl.className = "prediction-status";
+
+  const canEdit = !locked;
+  homeInput.disabled = !canEdit;
+  awayInput.disabled = !canEdit;
+  saveBtn.disabled = !canEdit;
+
+  saveBtn.addEventListener("click", () => {
+    const homeScore = Number(homeInput.value);
+    const awayScore = Number(awayInput.value);
+    if (homeInput.value === "" || awayInput.value === "" || Number.isNaN(homeScore) || Number.isNaN(awayScore)) {
+      statusEl.textContent = "Enter both scores.";
+      statusEl.classList.add("error");
+      return;
+    }
+    savePrediction(match.id, homeScore, awayScore, statusEl);
+  });
+
+  form.appendChild(homeInput);
+  form.appendChild(sep);
+  form.appendChild(awayInput);
+  form.appendChild(saveBtn);
+  form.appendChild(statusEl);
+  card.appendChild(form);
+
+  if (!canEdit && !own) {
+    const missed = document.createElement("p");
+    missed.className = "hint";
+    missed.textContent = "Kicked off - no prediction was submitted.";
+    card.appendChild(missed);
+  }
+
+  if (locked) {
+    const others = predictions.filter((pr) => pr.match_id === match.id && pr.player_id !== currentPlayer.id);
+    if (others.length > 0) {
+      const picks = document.createElement("div");
+      picks.className = "match-picks-reveal";
+      picks.textContent = others
+        .map((pr) => {
+          const player = players.find((p) => p.id === pr.player_id);
+          return `${player ? player.name : "Player"}: ${pr.predicted_home_score}-${pr.predicted_away_score}`;
+        })
+        .join(" · ");
+      card.appendChild(picks);
+    }
+  }
+
+  return card;
 }
 
 function renderLeaderboard() {
   leaderboardList.innerHTML = "";
 
-  const decidedCount = pots.filter((pot) => state.results[pot.id]).length;
-  leaderboardSummary.textContent = matchData.loaded
-    ? "Live match points"
-    : `${decidedCount} pot${decidedCount === 1 ? "" : "s"} decided`;
+  const decidedCount = matches.filter(isFinal).length;
+  leaderboardSummary.textContent = `${decidedCount} match${decidedCount === 1 ? "" : "es"} decided`;
 
-  if (state.players.length === 0) {
+  if (players.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
-    empty.textContent = "Add players to see the leaderboard.";
+    empty.textContent = "No players yet.";
     leaderboardList.appendChild(empty);
     return;
   }
 
-  const rows = state.players
-    .map(getPlayerScore)
-    .sort(
-      (a, b) =>
-        b.score - a.score ||
-        (b.wins || 0) - (a.wins || 0) ||
-        (b.goalDifference || 0) - (a.goalDifference || 0) ||
-        a.player.name.localeCompare(b.player.name)
-    );
+  const rows = computeLeaderboard();
 
   rows.forEach((row, index) => {
     const item = document.createElement("div");
@@ -816,14 +605,11 @@ function renderLeaderboard() {
     name.textContent = row.player.name;
 
     const subtext = document.createElement("span");
-    const winningLabels = row.matchBased
-      ? `${row.decided} team games - ${row.wins}W ${row.draws}D ${row.losses}L - GD ${row.goalDifference >= 0 ? "+" : ""}${row.goalDifference}`
-      : row.winningTeams.map((pot) => `${pot.label}: ${state.results[pot.id]}`).join(", ");
-    subtext.textContent = winningLabels || `${getPickCount(row.player)}/4 picked - ${row.player.locked ? "locked" : "open"}`;
+    subtext.textContent = `${row.wp} WP · ${row.mp} MP · ${row.bp} BP${row.gsp ? ` · ${row.gsp} Grand Slam` : ""}`;
 
     const score = document.createElement("div");
     score.className = "leaderboard-score";
-    score.textContent = row.matchBased ? `${row.score} pts` : `${row.score}/${row.decided}`;
+    score.textContent = `${row.points} pts`;
 
     details.appendChild(name);
     details.appendChild(subtext);
@@ -834,81 +620,126 @@ function renderLeaderboard() {
   });
 }
 
-function renderResults() {
-  resultsGrid.innerHTML = "";
-  winnersPanel.innerHTML = "";
+function renderAdminMatches() {
+  adminMatchesGrid.innerHTML = "";
 
-  pots.forEach((pot) => {
-    const card = document.createElement("div");
-    card.className = "result-card";
+  matches.forEach((match) => {
+    const row = document.createElement("div");
+    row.className = "admin-match-row";
 
-    const title = document.createElement("h3");
-    title.textContent = `${pot.label} result`;
-    card.appendChild(title);
+    const homeTeamInput = document.createElement("input");
+    homeTeamInput.value = match.home_team;
+    homeTeamInput.className = "admin-team-input";
 
-    pot.teams.forEach((team) => {
-      const button = document.createElement("button");
-      button.className = "result-team-button";
-      button.textContent = team;
-      button.disabled = !state.adminMode;
+    const awayTeamInput = document.createElement("input");
+    awayTeamInput.value = match.away_team;
+    awayTeamInput.className = "admin-team-input";
 
-      if (state.results[pot.id] === team) {
-        button.classList.add("selected");
-      }
+    const homeScoreInput = document.createElement("input");
+    homeScoreInput.type = "number";
+    homeScoreInput.min = "0";
+    homeScoreInput.className = "admin-score-input";
+    homeScoreInput.value = match.home_score ?? "";
 
-      button.addEventListener("click", () => setResult(pot.id, team));
-      card.appendChild(button);
+    const awayScoreInput = document.createElement("input");
+    awayScoreInput.type = "number";
+    awayScoreInput.min = "0";
+    awayScoreInput.className = "admin-score-input";
+    awayScoreInput.value = match.away_score ?? "";
+
+    const statusSelect = document.createElement("select");
+    ["upcoming", "live", "final"].forEach((value) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = value;
+      option.selected = match.status === value;
+      statusSelect.appendChild(option);
     });
 
-    const winnerText = document.createElement("p");
-    winnerText.className = "selected-winner";
-    winnerText.textContent = `Selected winner: ${state.results[pot.id] || "None"}`;
-    card.appendChild(winnerText);
-    resultsGrid.appendChild(card);
-  });
+    const saveBtn = document.createElement("button");
+    saveBtn.textContent = "Save";
+    const statusEl = document.createElement("span");
+    statusEl.className = "prediction-status";
 
-  renderWinnerCards();
+    saveBtn.addEventListener("click", () =>
+      saveMatchUpdate(
+        match.id,
+        {
+          home_team: homeTeamInput.value.trim(),
+          away_team: awayTeamInput.value.trim(),
+          home_score: homeScoreInput.value === "" ? null : Number(homeScoreInput.value),
+          away_score: awayScoreInput.value === "" ? null : Number(awayScoreInput.value),
+          status: statusSelect.value,
+        },
+        statusEl
+      )
+    );
+
+    const label = document.createElement("div");
+    label.className = "admin-match-label";
+    label.textContent = `#${match.sort_order} ${match.round}`;
+
+    row.appendChild(label);
+    row.appendChild(homeTeamInput);
+    row.appendChild(homeScoreInput);
+    row.appendChild(awayScoreInput);
+    row.appendChild(awayTeamInput);
+    row.appendChild(statusSelect);
+    row.appendChild(saveBtn);
+    row.appendChild(statusEl);
+    adminMatchesGrid.appendChild(row);
+  });
 }
 
-function renderWinnerCards() {
-  const activePots = pots.filter((pot) => state.results[pot.id]);
+async function saveMatchUpdate(matchId, updates, statusEl) {
+  statusEl.textContent = "Saving...";
 
-  if (activePots.length === 0) {
-    const message = document.createElement("div");
-    message.className = "alert";
-    message.textContent = "No pot winners selected yet. Use admin mode to mark winners for each pot.";
-    winnersPanel.appendChild(message);
+  const { data, error } = await supabaseClient.from("matches").update(updates).eq("id", matchId).select().single();
+
+  if (error) {
+    statusEl.textContent = "Save failed.";
+    statusEl.classList.add("error");
     return;
   }
 
-  activePots.forEach((pot) => {
-    const winnerTeam = state.results[pot.id];
-    const winners = state.players.filter((player) => player.picks[pot.id] === winnerTeam);
-    const card = document.createElement("div");
-    card.className = "winner-card";
+  const index = matches.findIndex((match) => match.id === matchId);
+  if (index >= 0) matches[index] = data;
 
-    const title = document.createElement("strong");
-    title.textContent = `${pot.label} winner: ${winnerTeam}`;
-    card.appendChild(title);
-
-    const details = document.createElement("div");
-    details.textContent = winners.length
-      ? `Winner${winners.length > 1 ? "s" : ""}: ${winners.map((winner) => winner.name).join(", ")}`
-      : "No player picked that team yet.";
-    card.appendChild(details);
-
-    winnersPanel.appendChild(card);
-  });
+  statusEl.textContent = "Saved";
+  statusEl.classList.remove("error");
+  render();
 }
 
 function render() {
-  renderPlayers();
-  renderPots();
+  renderProgress();
+  renderMyPicksSummary();
+  renderMatchesGroups();
   renderLeaderboard();
-  renderResults();
 
-  adminModeBtn.textContent = state.adminMode ? "Admin mode: ON" : "Admin mode";
-  adminModeBtn.classList.toggle("admin-on", state.adminMode);
+  adminModeBtn.textContent = adminMode ? "Admin mode: ON" : "Admin mode";
+  adminModeBtn.classList.toggle("admin-on", adminMode);
+  adminPanel.classList.toggle("hidden", !adminMode);
+  if (adminMode) renderAdminMatches();
+}
+
+// ---------------------------------------------------------------------------
+// Admin gate + add player modal
+// ---------------------------------------------------------------------------
+
+function promptAdmin() {
+  if (adminMode) {
+    adminMode = false;
+    render();
+    return;
+  }
+
+  const password = prompt("Enter admin password to enable admin mode:");
+  if (password === adminPassword) {
+    adminMode = true;
+    render();
+  } else if (password !== null) {
+    alert("Incorrect password.");
+  }
 }
 
 function openModal(title, placeholder, callback) {
@@ -942,40 +773,42 @@ function openModal(title, placeholder, callback) {
   modalInput.addEventListener("keydown", handleKeydown);
 }
 
-function promptAdmin() {
-  if (state.adminMode) {
-    state.adminMode = false;
-    saveState();
-    render();
+async function addPlayerAsAdmin(name) {
+  const { error } = await supabaseClient.from("players").insert({ name });
+  if (error) {
+    alert(`Could not add player: ${error.message}`);
     return;
   }
-
-  const password = prompt("Enter admin password to enable admin mode:");
-  if (password === adminPassword) {
-    state.adminMode = true;
-    saveState();
-    render();
-  } else if (password !== null) {
-    alert("Incorrect password.");
-  }
+  await loadPlayers();
+  render();
 }
 
-if (addPlayerBtn) {
-  addPlayerBtn.addEventListener("click", () => {
-    openModal("Add players", "Enter one co-worker name per line", (value) => {
-      const names = parsePlayerNames(value);
-      if (names.length > 0) createPlayers(names);
-    });
-  });
-}
+// ---------------------------------------------------------------------------
+// Wiring
+// ---------------------------------------------------------------------------
 
-if (importPlayersBtn) {
-  importPlayersBtn.addEventListener("click", () => {
-    importPlayersFromFile(true);
-  });
-}
+sendCodeBtn.addEventListener("click", sendLoginCode);
+loginEmail.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") sendLoginCode();
+});
 
+verifyCodeBtn.addEventListener("click", verifyLoginCode);
+loginCode.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") verifyLoginCode();
+});
+
+changeEmailBtn.addEventListener("click", () => {
+  setLoginMessage("");
+  showLoginStep(loginEmailStep);
+});
+
+claimNewNameBtn.addEventListener("click", claimNewPlayer);
+signOutBtn.addEventListener("click", signOut);
 adminModeBtn.addEventListener("click", promptAdmin);
+
+addPlayerBtn.addEventListener("click", () => {
+  openModal("Add Player", "Enter the player's name", (name) => addPlayerAsAdmin(name));
+});
 
 togglePanelBtns.forEach((button) => {
   button.addEventListener("click", () => {
@@ -995,16 +828,20 @@ window.addEventListener("click", (event) => {
 });
 
 async function init() {
-  loadState();
-  initSupabase();
-  render();
-  loadMatchProgress();
-  const cloudLoaded = await loadCloudState();
-  await loadPlayersFromFileIfEmpty();
+  if (!initSupabase()) return;
 
-  if (!cloudLoaded && supabaseClient && state.players.length > 0) {
-    await saveCloudState();
+  const { data } = await supabaseClient.auth.getSession();
+  session = data.session;
+
+  if (session) {
+    await afterSignIn();
   }
+
+  setInterval(async () => {
+    if (!currentPlayer) return;
+    await Promise.all([loadMatches(), loadPredictions()]);
+    render();
+  }, REFRESH_INTERVAL_MS);
 }
 
 init();

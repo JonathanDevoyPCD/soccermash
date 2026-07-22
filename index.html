@@ -3,89 +3,124 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SoccerSmash 2026</title>
+  <title>SuperRuck 2027</title>
   <link rel="icon" type="image/x-icon" href="assets/icon2.ico">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <nav class="top-nav">
-    <div class="nav-title">SOCCERSMASH 2026 - FIFA World Cup 2026</div>
+    <div class="nav-title">SUPERRUCK 2027 - Rugby World Cup 2027</div>
     <div class="nav-actions">
       <span id="syncStatus" class="sync-status">Local only</span>
+      <span id="accountStatus" class="account-status hidden"></span>
+      <button id="signOutBtn" class="hidden">Sign out</button>
       <button id="adminModeBtn">Admin mode</button>
     </div>
   </nav>
 
   <main>
     <header>
-      <h1>SOCCERSMASH 2026</h1>
-      <p>Each co-worker chooses one team from each pot. Locked picks score live match points as World Cup results come in.</p>
+      <h1>SUPERRUCK 2027</h1>
+      <p>Predict the score of every match. Win Points, Margin Points, closest-guess Bonus Points and a
+        Grand Slam bonus for a perfect round - the leaderboard moves all tournament long.</p>
     </header>
 
-    <section class="progress-panel">
-      <div class="panel-header">
-        <h2>World Cup Progress</h2>
-        <span id="matchApiStatus" class="panel-pill">Loading fixtures</span>
-      </div>
-      <div class="progress-summary">
-        <div>
-          <strong id="matchesPlayedText">0 / 104 matches played</strong>
-          <p id="nextMatchText">Checking the next fixture...</p>
-        </div>
-        <div class="progress-stats">
-          <span id="liveMatchesText">0 live</span>
-          <span id="upcomingMatchesText">104 upcoming</span>
+    <section id="loginPanel" class="login-panel">
+      <div id="loginEmailStep" class="login-step">
+        <h2>Sign in to play</h2>
+        <p class="hint">Enter your email and we'll send you a one-time code.</p>
+        <div class="login-form">
+          <input id="loginEmail" type="email" placeholder="you@example.com" autocomplete="email" />
+          <button id="sendCodeBtn">Send code</button>
         </div>
       </div>
-      <div class="match-progress-bar" aria-label="World Cup match progress">
-        <div id="matchProgressFill" class="match-progress-fill"></div>
+
+      <div id="loginCodeStep" class="login-step hidden">
+        <h2>Enter your code</h2>
+        <p class="hint">We emailed a 6-digit code to <strong id="loginCodeEmail"></strong>.</p>
+        <div class="login-form">
+          <input id="loginCode" type="text" inputmode="numeric" maxlength="6" placeholder="123456" />
+          <button id="verifyCodeBtn">Verify</button>
+        </div>
+        <button id="changeEmailBtn" class="link-button">Use a different email</button>
       </div>
+
+      <div id="loginClaimStep" class="login-step hidden">
+        <h2>Which name is yours?</h2>
+        <p class="hint">Pick your name from the roster to link it to this email.</p>
+        <div id="claimPlayerList" class="claim-player-list"></div>
+        <div class="login-form">
+          <input id="claimNewName" type="text" placeholder="Not listed? Type your name" />
+          <button id="claimNewNameBtn">Add me</button>
+        </div>
+      </div>
+
+      <p id="loginMessage" class="login-message"></p>
     </section>
 
-    <section class="game-area">
-      <section class="players-panel">
+    <div id="appContent" class="hidden">
+      <section class="progress-panel">
         <div class="panel-header">
-          <h2>Players</h2>
+          <h2>Tournament Progress</h2>
+          <span id="progressPill" class="panel-pill">Loading fixtures</span>
         </div>
-        <div id="playersList" class="players-list"></div>
+        <div class="progress-summary">
+          <div>
+            <strong id="matchesPlayedText">0 / 52 matches played</strong>
+            <p id="nextMatchText">Checking the next fixture...</p>
+          </div>
+          <div class="progress-stats">
+            <span id="liveMatchesText">0 live</span>
+            <span id="upcomingMatchesText">52 upcoming</span>
+          </div>
+        </div>
+        <div class="match-progress-bar" aria-label="Tournament progress">
+          <div id="matchProgressFill" class="match-progress-fill"></div>
+        </div>
       </section>
 
-      <section class="pots-panel">
-        <h2>Pot Teams</h2>
-        <div class="pots-grid" id="potsGrid"></div>
-      </section>
-    </section>
-
-    <section class="leaderboard-panel">
-      <div class="panel-header">
-        <h2>Leaderboard</h2>
-        <div class="panel-header-actions">
-          <span id="leaderboardSummary" class="panel-pill">0 pots decided</span>
-          <button class="toggle-panel-btn" data-target="leaderboardContent" aria-expanded="false">Expand</button>
+      <section class="matches-panel">
+        <div class="panel-header">
+          <h2>Your Predictions</h2>
+          <span id="myPicksSummary" class="panel-pill">0 / 52 predicted</span>
         </div>
-      </div>
-      <div id="leaderboardContent" class="collapsible-content collapsed">
-        <div id="leaderboardList" class="leaderboard-list"></div>
-      </div>
-    </section>
+        <div id="matchesGroups" class="matches-groups"></div>
+      </section>
 
-    <section class="results-panel">
-      <div class="panel-header">
-        <h2>Pot Results</h2>
-        <button class="toggle-panel-btn" data-target="resultsContent" aria-expanded="false">Expand</button>
-      </div>
-      <div id="resultsContent" class="collapsible-content collapsed">
-        <p class="hint">Use admin mode to unlock locked picks or edit results.</p>
-        <div id="resultsGrid" class="results-grid"></div>
-        <div id="winnersPanel" class="winners-panel"></div>
-      </div>
-    </section>
+      <section class="leaderboard-panel">
+        <div class="panel-header">
+          <h2>Leaderboard</h2>
+          <div class="panel-header-actions">
+            <span id="leaderboardSummary" class="panel-pill">0 matches decided</span>
+            <button class="toggle-panel-btn" data-target="leaderboardContent" aria-expanded="false">Expand</button>
+          </div>
+        </div>
+        <div id="leaderboardContent" class="collapsible-content collapsed">
+          <div id="leaderboardList" class="leaderboard-list"></div>
+        </div>
+      </section>
+
+      <section id="adminPanel" class="admin-panel hidden">
+        <div class="panel-header">
+          <h2>Admin - Results &amp; Matches</h2>
+          <div class="panel-header-actions">
+            <button id="addPlayerBtn">Add player</button>
+            <button class="toggle-panel-btn" data-target="adminContent" aria-expanded="false">Expand</button>
+          </div>
+        </div>
+        <div id="adminContent" class="collapsible-content collapsed">
+          <p class="hint">Enter the final score once a match finishes. Knockout matches: update the
+            placeholder team names once they're known.</p>
+          <div id="adminMatchesGrid" class="admin-matches-grid"></div>
+        </div>
+      </section>
+    </div>
   </main>
 
   <div id="modal" class="modal hidden">
     <div class="modal-content">
-      <h3 id="modalTitle">Add Players</h3>
-      <textarea id="modalInput" rows="7" placeholder="Enter one co-worker name per line"></textarea>
+      <h3 id="modalTitle">Add Player</h3>
+      <textarea id="modalInput" rows="3" placeholder="Enter the player's name"></textarea>
       <div class="modal-actions">
         <button id="modalCancelBtn">Cancel</button>
         <button id="modalSaveBtn">Save</button>

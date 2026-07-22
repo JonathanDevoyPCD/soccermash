@@ -1,46 +1,51 @@
-# 2026 Soccer World Cup Pot Pick Game
+# SuperRuck 2027 - Rugby World Cup Predictor
 
-A tablet-friendly local web app for a workplace World Cup pot-pick game.
+A tablet-friendly web app for a workplace Rugby World Cup 2027 predictor game, in the style of
+Superbru: every player predicts the score of every match, all tournament long.
 
 ## Features
 
-- Four 2026 World Cup pots with the qualified teams
-- Add co-workers as players, including pasting multiple names at once
-- Import names from `players.txt`
-- Each player chooses one team from Pot 1, Pot 2, Pot 3, and Pot 4
-- Each player can be locked individually once their own four teams are chosen
-- Locked picks cannot be changed unless admin mode is enabled
-- Admin mode can unlock picks and select the winning team for each pot
-- Admin mode can reset all picks for a player
-- Winners are shown per pot based on the saved player picks
-- Leaderboard ranks players by live match points from their picked teams
-- Leaderboard and Pot Results start collapsed and can be expanded
-- World Cup progress bar loads fixture status from a public fixtures API with static JSON fallback
-- State is saved in the browser with `localStorage`
-- Optional Supabase sync for shared choices across devices
+- All 52 Rugby World Cup 2027 fixtures (Australia, 1 Oct - 13 Nov 2027), pool stage teams pre-loaded,
+  knockout rounds filled in by admin as the draw resolves
+- Each player signs in with a one-time email code (no shared password for players) and predicts a
+  score for every match
+- Predictions lock automatically at kickoff and other players' picks are hidden until then
+- Every player's prediction on every match is its own database row, so two players saving at the same
+  time never overwrite each other
+- Scoring, Superbru-style: Win Point (correct winner), Margin Point (within 5 of the actual margin),
+  Bonus Point (closest margin on that match), Grand Slam bonus (every match in a round correct)
+- Live leaderboard, updated as admin enters results
+- Admin mode enters match results, edits knockout team names once they're known, and adds players
+- Optional Supabase sync so everyone shares the same live state across devices
 
 ## Usage
 
-1. Open `index.html` in a browser on the tablet.
-2. Click `Import players.txt` to load the names from `players.txt`, or use `Add players` to paste names manually.
-3. Select a player and choose one team from each pot.
-4. Click `Lock [player name]` once that player has chosen all four teams. Other players can stay open.
-5. Click `Admin mode` and enter `1234` to unlock picks or edit results.
-6. In `Pot Results`, select the winning team for each pot as the tournament progresses.
+1. Open `index.html` in a browser (or visit the GitHub Pages URL below).
+2. Enter your email, then the 6-digit code that gets emailed to you.
+3. First time signing in: pick your name from the roster (or add it if it's missing).
+4. Predict a score for each upcoming match before it kicks off - predictions lock automatically at
+   kickoff.
+5. Click `Admin mode` and enter `1234` to enter match results or edit knockout team names as rounds
+   are decided.
 
 ## Supabase Setup
 
-1. In Supabase, open the SQL editor and run `supabase-schema.sql`.
-2. Confirm `supabase-config.js` contains the project URL and publishable key.
-3. Commit and push any config changes.
+1. In Supabase, open the SQL editor and run `supabase-schema.sql`. This creates the `players`,
+   `matches` and `predictions` tables, sets up row-level security, and seeds the roster + fixtures.
+2. In Authentication settings, confirm the email template used for one-time codes includes `{{ .Token }}`
+   so players receive a 6-digit code (not just a magic-link URL).
+3. Confirm `supabase-config.js` contains the project URL and publishable key.
+4. Commit and push any config changes.
 
-The app runs at `https://jonathandevoypcd.github.io/soccermash/` once GitHub Pages is enabled for this repo.
+The app runs at `https://jonathandevoypcd.github.io/SuperRuck2027/` once GitHub Pages is enabled for
+this repo.
 
 ## Files
 
 - `index.html` - main page
 - `styles.css` - tablet-friendly styling
-- `app.js` - game logic and browser storage
+- `app.js` - game logic, auth, scoring and Supabase sync
 - `supabase-config.js` - Supabase browser client configuration
-- `supabase-schema.sql` - database table and row-level security policies
+- `supabase-schema.sql` - database tables, row-level security policies, and seed data
+- `players.txt` - historical seed list (already migrated into `supabase-schema.sql`); not read by the app
 - `README.md` - setup and usage notes
